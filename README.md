@@ -68,15 +68,29 @@ A CLI vai perguntar pelas env vars. Cola `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBL
 
 ```
 app/
-  layout.tsx          # fonts + tema
-  page.tsx            # dashboard principal (server component)
-  globals.css         # design tokens (light + dark)
+  layout.tsx              # header + nav + footer compartilhados
+  page.tsx                # visão geral (hero + KPIs base/engajamento)
+  globals.css             # design tokens (light + dark)
+  funil/                  # 01 · funil ponta a ponta (até engajamento)
+  crescimento/            # 02 · timeseries da base
+  origem/                 # 03 · aquisição por UTM
+  edicoes/                # 08 · desempenho por edição (+ [postId] detalhe)
+  engajamento/            # 09 · engajamento agregado da base
+  leads/                  # 10 · jornada do lead (busca + diretório)
+  eventos/ saude/ conteudo/ atividade/   # demais seções
 components/
+  Nav.tsx             # navegação por abas
   KPI.tsx             # cards de métrica
   Section.tsx         # blocos editoriais com número
   BarList.tsx         # barras horizontais (top N)
-  Funnel.tsx          # funil de aquisição
+  Funnel.tsx          # funil
   Timeseries.tsx      # linha temporal (Recharts)
+  EngagementArea.tsx  # aberturas/cliques no tempo (Recharts)
+  HourBars.tsx        # aberturas por hora
+  EditionsTable.tsx   # tabela de edições
+  LeadsTable.tsx      # diretório de leads
+  LeadJourneyView.tsx # jornada individual + timeline
+  LeadSearch.tsx      # busca de leads
   SyncDonut.tsx       # donut de sync RD
   RecentEvents.tsx    # tabela últimos eventos Beehiiv
   RecentOutbound.tsx  # tabela últimos envios RD
@@ -85,9 +99,20 @@ components/
 lib/
   supabase-client.ts  # client browser (Realtime)
   supabase-server.ts  # client server (SSR queries)
-  queries.ts          # agregação completa do snapshot
+  queries.ts          # snapshot da base/eventos/outbound
+  analytics.ts        # edições, engajamento e jornada do lead
   format.ts           # helpers de formatação
 ```
+
+### Tabelas e views (Supabase)
+
+Além de `beehiiv_events` e `beehiiv_sync_outbound`:
+
+- `beehiiv_editions` — cada disparo da newsletter (título, assunto, envio, agendamento)
+- `beehiiv_interactions` — 1 linha por interação de lead × edição (delivered/opened/clicked/bounced/unsubscribed)
+- `v_edition_performance` — agregados por edição (open rate, CTR, CTOR, unsubs)
+- `v_lead_engagement` — engajamento por lead (edições recebidas/abertas/clicadas)
+- `v_subscribers` · `v_engagement_daily` · `v_engagement_by_hour` · `v_link_performance`
 
 ---
 
@@ -99,14 +124,17 @@ lib/
 - Envios RD → Beehiiv (sucesso + falhas)
 - Eventos sync com RD (synced / pending / failed)
 
-### Seções
-1. **Funil ponta a ponta** — RD enviou → Beehiiv aceitou → criou subscriber → confirmou
-2. **Crescimento da base** — timeseries 30d (criados, removidos, líquido)
-3. **Aquisição por canal** — UTM source + campaign top 8
-4. **Distribuição de eventos** — top 8 tipos + donut sync RD
-5. **Saúde da integração** — sucesso/falha + motivos de erro agrupados
-6. **Conteúdo enviado** — posts (sent/scheduled/updated)
-7. **Atividade ao vivo** — últimos 12 envios + últimos 12 eventos
+### Páginas (cada parte do dash em sua rota)
+1. **Funil ponta a ponta** (`/funil`) — RD enviou → aceitou → criou → confirmou → abriu → clicou
+2. **Crescimento da base** (`/crescimento`) — timeseries 30d (criados, removidos, líquido)
+3. **Aquisição por canal** (`/origem`) — UTM source + campaign top 8
+8. **Desempenho por edição** (`/edicoes`) — cada newsletter: entregas, abertura, CTR, unsubs; detalhe em `/edicoes/[postId]`
+9. **Engajamento da base** (`/engajamento`) — aberturas/cliques no tempo, melhores horários, links e leads mais engajados
+10. **Trajeto do lead** (`/leads`) — busca por email + linha do tempo individual; diretório ordenado por interação
+- **Distribuição de eventos** (`/eventos`) — ciclo de vida + interações de email + donut sync RD
+- **Saúde da integração** (`/saude`) — sucesso/falha + motivos de erro agrupados
+- **Conteúdo enviado** (`/conteudo`) — posts (sent/scheduled/updated)
+- **Atividade ao vivo** (`/atividade`) — últimos envios + últimos eventos
 
 ### Realtime
 Indicador no header conta novos eventos chegando via WebSocket. Clica em "Atualizar" para refazer queries SSR.

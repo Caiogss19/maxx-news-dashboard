@@ -1,11 +1,12 @@
 import { getSnapshot } from "@/lib/queries";
+import { getEngagement } from "@/lib/analytics";
 import { KPI } from "@/components/KPI";
 import { fmtNum, fmtPct } from "@/lib/format";
 
 export const revalidate = 30;
 
 export default async function Page() {
-  const s = await getSnapshot();
+  const [s, eng] = await Promise.all([getSnapshot(), getEngagement()]);
 
   return (
     <main>
@@ -49,8 +50,9 @@ export default async function Page() {
         </p>
       </section>
 
-      {/* ── KPIs TOPO ────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* ── KPIs · BASE ──────────────────────────────────────────────── */}
+      <div className="font-mono-tag mb-4">Base &amp; aquisição</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
         <KPI
           label="Subscribers ativos"
           value={fmtNum(s.base.active)}
@@ -74,6 +76,20 @@ export default async function Page() {
           value={fmtNum(s.events.rdSynced.synced)}
           hint={`${s.events.rdSynced.failed} falharam · ${s.events.rdSynced.pending} pendentes`}
           accent={s.events.rdSynced.failed > 0 ? "crimson" : "olive"}
+        />
+      </div>
+
+      {/* ── KPIs · ENGAJAMENTO ───────────────────────────────────────── */}
+      <div className="font-mono-tag mb-4">Engajamento da newsletter</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KPI label="Edições enviadas" value={fmtNum(eng.totals.editions)} accent="ink" hint={`${fmtNum(eng.totals.delivered)} entregas`} />
+        <KPI label="Abertura média" value={fmtPct(eng.totals.avgOpenRate)} accent="olive" hint={`${fmtNum(eng.totals.opens)} aberturas`} />
+        <KPI label="CTR médio" value={fmtPct(eng.totals.avgCtr)} accent="amber" hint={`${fmtNum(eng.totals.clicks)} cliques`} />
+        <KPI
+          label="Leads engajados"
+          value={fmtNum(eng.funnel.openers)}
+          accent="plum"
+          hint={`${fmtNum(eng.funnel.clickers)} clicaram alguma edição`}
         />
       </div>
     </main>
