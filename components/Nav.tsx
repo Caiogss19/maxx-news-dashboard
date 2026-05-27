@@ -5,16 +5,11 @@ import { usePathname } from "next/navigation";
 
 const TABS = [
   { href: "/", label: "Visão geral" },
-  { href: "/funil", label: "Funil" },
-  { href: "/crescimento", label: "Crescimento" },
-  { href: "/origem", label: "Origem" },
+  { href: "/aquisicao", label: "Aquisição" },
   { href: "/edicoes", label: "Edições" },
   { href: "/engajamento", label: "Engajamento" },
   { href: "/leads", label: "Leads" },
-  { href: "/eventos", label: "Eventos" },
-  { href: "/saude", label: "Saúde" },
-  { href: "/conteudo", label: "Conteúdo" },
-  { href: "/atividade", label: "Atividade" }
+  { href: "/operacao", label: "Operação" }
 ];
 
 export function Nav() {
