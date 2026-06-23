@@ -106,113 +106,75 @@ export async function getSnapshot(): Promise<Snapshot> {
   try {
     const sb = createSupabaseServer();
 
-    // ── Outbound (Fluxo 1) ────────────────────────────────────────────────
-    const { data: outbound, error: e1 } = await sb
-      .from("beehiiv_sync_outbound")
-      .select("*")
-      .order("sent_at", { ascending: false })
-      .limit(5000);
+    // Tudo agregado server-side via views (sem cair no limit 1000 do PostgREST)
+    const [
+      subStatsRes, utmSrcRes, utmCmpRes,
+      typeStatsRes, catStatsRes, rdStatsRes, postStatsRes,
+      dailyRes, outStatsRes, outErrRes,
+      recentEventsRes, recentOutboundRes
+    ] = await Promise.all([
+      sb.from("v_subscriber_stats").select("*").limit(1),
+      sb.from("v_utm_source_stats").select("*").limit(10),
+      sb.from("v_utm_campaign_stats").select("*").limit(10),
+      sb.from("v_event_type_stats").select("*").limit(20),
+      sb.from("v_event_category_stats").select("*"),
+      sb.from("v_rd_sync_stats").select("*").limit(1),
+      sb.from("v_post_stats").select("*").limit(1),
+      sb.from("v_subscriber_daily").select("*"),
+      sb.from("v_outbound_stats").select("*").limit(1),
+      sb.from("v_outbound_errors").select("*").limit(8),
+      sb.from("beehiiv_events").select("*").order("received_at", { ascending: false }).limit(12),
+      sb.from("beehiiv_sync_outbound").select("*").order("sent_at", { ascending: false }).limit(12)
+    ]);
 
-    // ── Events (Fluxo 2) ──────────────────────────────────────────────────
-    const { data: events, error: e2 } = await sb
-      .from("beehiiv_events")
-      .select("*")
-      .order("received_at", { ascending: false })
-      .limit(10000);
+    const subS = (subStatsRes.data?.[0] ?? {}) as { created?: number; confirmed?: number; deleted?: number; active?: number };
+    const created = Number(subS.created ?? 0);
+    const confirmed = Number(subS.confirmed ?? 0);
+    const deleted = Number(subS.deleted ?? 0);
+    const active = Number(subS.active ?? 0);
 
-    if (e1 || e2) {
-      console.error("Supabase errors:", e1, e2);
-      return EMPTY;
-    }
+    const utmSource = (utmSrcRes.data ?? []).map((r) => ({ source: String((r as any).source ?? ""), count: Number((r as any).count ?? 0) }));
+    const utmCampaign = (utmCmpRes.data ?? []).map((r) => ({ campaign: String((r as any).campaign ?? ""), count: Number((r as any).count ?? 0) }));
 
-    const out = (outbound ?? []) as OutboundRow[];
-    const ev = (events ?? []) as EventRow[];
+    const byType = (typeStatsRes.data ?? []).map((r) => ({ type: String((r as any).type ?? ""), count: Number((r as any).count ?? 0) }));
+    const byCategory = (catStatsRes.data ?? []).map((r) => ({ category: String((r as any).category ?? ""), count: Number((r as any).count ?? 0) }));
 
-    // ── Outbound metrics ─────────────────────────────────────────────────
-    const outOk = out.filter((r) => r.success).length;
-    const outFail = out.length - outOk;
-    const errorGroups = groupCount(
-      out.filter((r) => !r.success && r.error_message),
-      "error_message" as any
-    ).map((g) => ({ message: g.key, count: g.count }));
+    const rdS = (rdStatsRes.data?.[0] ?? {}) as { synced?: number; pending?: number; failed?: number };
+    const postS = (postStatsRes.data?.[0] ?? {}) as { sent?: number; scheduled?: number; updated?: number };
 
-    // ── Base de subscribers ──────────────────────────────────────────────
-    const created = ev.filter((r) => r.event_type === "subscription.created").length;
-    const confirmed = ev.filter((r) => r.event_type === "subscription.confirmed").length;
-    const deleted = ev.filter((r) => r.event_type === "subscription.deleted").length;
-    // Active = subscribers únicos com último evento != deleted
-    const lastByEmail = new Map<string, EventRow>();
-    for (const r of ev) {
-      if (!r.email) continue;
-      const cat = r.event_category;
-      if (cat !== "subscription") continue;
-      const cur = lastByEmail.get(r.email);
-      if (!cur || new Date(r.received_at) > new Date(cur.received_at)) {
-        lastByEmail.set(r.email, r);
-      }
-    }
-    let active = 0;
-    for (const r of lastByEmail.values()) {
-      if (r.event_type !== "subscription.deleted") active++;
-    }
-
-    // ── UTM ──────────────────────────────────────────────────────────────
-    const subCreated = ev.filter((r) => r.event_type === "subscription.created");
-    const utmSource = groupCount(subCreated, "utm_source" as any)
-      .filter((g) => g.key && g.key !== "—")
-      .slice(0, 10)
-      .map((g) => ({ source: g.key, count: g.count }));
-    const utmCampaign = groupCount(subCreated, "utm_campaign" as any)
-      .filter((g) => g.key && g.key !== "—")
-      .slice(0, 10)
-      .map((g) => ({ campaign: g.key, count: g.count }));
-
-    // ── Events distribution ──────────────────────────────────────────────
-    const byType = groupCount(ev, "event_type" as any).map((g) => ({ type: g.key, count: g.count }));
-    const byCategory = groupCount(ev, "event_category" as any).map((g) => ({ category: g.key, count: g.count }));
-
-    const rdSynced = ev.filter((r) => r.rd_synced === true).length;
-    const rdFailed = ev.filter(
-      (r) => r.rd_synced === false && r.rd_sync_status_code != null && r.rd_sync_status_code >= 400
-    ).length;
-    const rdEligibleEvents = ev.filter((r) => r.event_category !== "post").length;
-    const rdPending = Math.max(0, rdEligibleEvents - rdSynced - rdFailed);
-
-    // ── Posts ────────────────────────────────────────────────────────────
-    const postsSent = ev.filter((r) => r.event_type === "post.sent").length;
-    const postsScheduled = ev.filter((r) => r.event_type === "post.scheduled").length;
-    const postsUpdated = ev.filter((r) => r.event_type === "post.updated").length;
-
-    // ── Timeseries (last 30 days) ────────────────────────────────────────
+    // Timeseries: completa 30 dias com zero pros dias sem evento
     const days = 30;
     const daily: Array<{ date: string; created: number; deleted: number; net: number }> = [];
     const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    today.setUTCHours(0, 0, 0, 0);
     for (let i = days - 1; i >= 0; i--) {
       const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().slice(0, 10);
-      daily.push({ date: dateStr, created: 0, deleted: 0, net: 0 });
+      d.setUTCDate(d.getUTCDate() - i);
+      daily.push({ date: d.toISOString().slice(0, 10), created: 0, deleted: 0, net: 0 });
     }
     const dailyIdx = new Map(daily.map((r, i) => [r.date, i]));
-    for (const r of ev) {
-      // Usa beehiiv_created_at quando disponível (timestamp real); fallback pro received_at
-      const tsSource = r.beehiiv_created_at ?? r.received_at;
-      const date = (tsSource ?? "").slice(0, 10);
-      const idx = dailyIdx.get(date);
+    for (const r of dailyRes.data ?? []) {
+      const dateStr = String((r as any).date ?? "").slice(0, 10);
+      const idx = dailyIdx.get(dateStr);
       if (idx == null) continue;
-      if (r.event_type === "subscription.created") daily[idx].created++;
-      if (r.event_type === "subscription.deleted") daily[idx].deleted++;
+      daily[idx].created = Number((r as any).created ?? 0);
+      daily[idx].deleted = Number((r as any).deleted ?? 0);
     }
     for (const d of daily) d.net = d.created - d.deleted;
 
+    const outS = (outStatsRes.data?.[0] ?? {}) as { total?: number; ok?: number; fail?: number };
+    const outTotal = Number(outS.total ?? 0);
+    const outOk = Number(outS.ok ?? 0);
+    const outFail = Number(outS.fail ?? 0);
+    const errorGroups = (outErrRes.data ?? []).map((r) => ({ message: String((r as any).message ?? ""), count: Number((r as any).count ?? 0) }));
+
     return {
       outbound: {
-        total: out.length,
+        total: outTotal,
         ok: outOk,
         fail: outFail,
-        rate: pct(outOk, out.length),
-        errorsByMessage: errorGroups.slice(0, 8)
+        rate: pct(outOk, outTotal),
+        errorsByMessage: errorGroups
       },
       base: {
         created,
@@ -225,15 +187,23 @@ export async function getSnapshot(): Promise<Snapshot> {
       },
       utm: { bySource: utmSource, byCampaign: utmCampaign },
       events: {
-        byType: byType.slice(0, 20),
+        byType,
         byCategory,
-        rdSynced: { synced: rdSynced, pending: rdPending, failed: rdFailed }
+        rdSynced: {
+          synced: Number(rdS.synced ?? 0),
+          pending: Number(rdS.pending ?? 0),
+          failed: Number(rdS.failed ?? 0)
+        }
       },
-      posts: { sent: postsSent, scheduled: postsScheduled, updated: postsUpdated },
+      posts: {
+        sent: Number(postS.sent ?? 0),
+        scheduled: Number(postS.scheduled ?? 0),
+        updated: Number(postS.updated ?? 0)
+      },
       timeseries: { daily },
       recent: {
-        events: ev.slice(0, 12),
-        outbound: out.slice(0, 12)
+        events: ((recentEventsRes.data ?? []) as EventRow[]),
+        outbound: ((recentOutboundRes.data ?? []) as OutboundRow[])
       }
     };
   } catch (err) {
