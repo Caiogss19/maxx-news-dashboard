@@ -13,11 +13,17 @@ export const revalidate = 30;
 export default async function Page() {
   const e = await getEngagement();
 
-  const funnelSteps = [
-    { label: "Receberam", value: e.funnel.received, sublabel: "ao menos 1 edição" },
-    { label: "Abriram", value: e.funnel.openers, sublabel: "ao menos 1 abertura" },
-    { label: "Clicaram", value: e.funnel.clickers, sublabel: "ao menos 1 clique" }
-  ];
+  const funnelSteps = e.funnel.isEstimated
+    ? [
+        { label: "Recebem", value: e.funnel.received, sublabel: "média por edição" },
+        { label: "Abrem", value: e.funnel.openers, sublabel: "média por edição" },
+        { label: "Clicam", value: e.funnel.clickers, sublabel: "média por edição" }
+      ]
+    : [
+        { label: "Receberam", value: e.funnel.received, sublabel: "ao menos 1 edição" },
+        { label: "Abriram", value: e.funnel.openers, sublabel: "ao menos 1 abertura" },
+        { label: "Clicaram", value: e.funnel.clickers, sublabel: "ao menos 1 clique" }
+      ];
 
   return (
     <Section
@@ -43,7 +49,12 @@ export default async function Page() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-        <Funnel title="Funil de engajamento" caption="leads únicos" steps={funnelSteps} accent="olive" />
+        <Funnel
+          title="Funil de engajamento"
+          caption={e.funnel.isEstimated ? "média por edição · per-lead chega via webhook" : "leads únicos"}
+          steps={funnelSteps}
+          accent="olive"
+        />
         <HourBars data={e.byHour} />
       </div>
 

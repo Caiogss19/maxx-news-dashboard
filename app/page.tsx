@@ -81,15 +81,48 @@ export default async function Page() {
 
       {/* ── KPIs · ENGAJAMENTO ───────────────────────────────────────── */}
       <div className="font-mono-tag mb-4">Engajamento da newsletter</div>
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KPI label="Edições enviadas" value={fmtNum(eng.totals.editions)} accent="ink" hint={`${fmtNum(eng.totals.delivered)} entregas`} />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        <KPI label="Edições enviadas" value={fmtNum(eng.totals.editions)} accent="ink" hint={`${fmtNum(eng.totals.delivered)} entregas totais`} />
         <KPI label="Abertura média" value={fmtPct(eng.totals.avgOpenRate)} accent="olive" hint={`${fmtNum(eng.totals.opens)} aberturas`} />
-        <KPI label="CTR médio" value={fmtPct(eng.totals.avgCtr)} accent="amber" hint={`${fmtNum(eng.totals.clicks)} cliques`} />
+        <KPI label="CTOR médio" value={fmtPct(eng.totals.avgCtr)} accent="amber" hint={`${fmtNum(eng.totals.clicks)} cliques`} />
         <KPI
-          label="Leads engajados"
+          label={eng.funnel.isEstimated ? "Leitores únicos (média)" : "Leads engajados"}
           value={fmtNum(eng.funnel.openers)}
           accent="plum"
-          hint={`${fmtNum(eng.funnel.clickers)} clicaram alguma edição`}
+          hint={
+            eng.funnel.isEstimated
+              ? `${fmtNum(eng.funnel.clickers)} clicadores · média por edição (per-lead vai chegar via webhook)`
+              : `${fmtNum(eng.funnel.clickers)} clicaram alguma edição`
+          }
+        />
+      </div>
+
+      {/* ── KPIs · OPERAÇÃO ──────────────────────────────────────────── */}
+      <div className="font-mono-tag mb-4">Sinal de saúde</div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <KPI
+          label="Posts publicados"
+          value={fmtNum(s.posts.sent)}
+          accent="navy"
+          hint={`${s.posts.scheduled} agendados`}
+        />
+        <KPI
+          label="Eventos totais"
+          value={fmtNum(s.events.byType.reduce((a, t) => a + t.count, 0))}
+          accent="ink"
+          hint={`${s.events.byCategory.length} categorias ativas`}
+        />
+        <KPI
+          label="Total de descadastros"
+          value={fmtNum(s.base.deleted + eng.totals.unsubscribes)}
+          accent={(s.base.deleted + eng.totals.unsubscribes) > 0 ? "amber" : "ink"}
+          hint={`${s.base.deleted} via subscription · ${eng.totals.unsubscribes} via edições`}
+        />
+        <KPI
+          label="Top origem"
+          value={s.utm.bySource[0]?.source ?? "—"}
+          accent="plum"
+          hint={s.utm.bySource[0] ? `${fmtNum(s.utm.bySource[0].count)} subscribers` : undefined}
         />
       </div>
     </main>

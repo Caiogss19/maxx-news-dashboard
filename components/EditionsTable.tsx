@@ -18,9 +18,11 @@ export function EditionsTable({ editions }: { editions: EditionPerf[] }) {
               <th>#</th>
               <th>Edição</th>
               <th>Enviada</th>
+              <th>Recipients</th>
               <th>Entregues</th>
+              <th>Aberturas</th>
               <th>Abertura</th>
-              <th>CTR</th>
+              <th>CTOR</th>
               <th>Cliques</th>
               <th>Unsub</th>
             </tr>
@@ -35,7 +37,9 @@ export function EditionsTable({ editions }: { editions: EditionPerf[] }) {
                   </Link>
                 </td>
                 <td className="text-xs text-ink-mute whitespace-nowrap">{fmtDate(e.sent_at)}</td>
+                <td className="font-mono text-sm">{fmtNum(e.recipients)}</td>
                 <td className="font-mono text-sm">{fmtNum(e.delivered)}</td>
+                <td className="font-mono text-sm text-ink-mute">{fmtNum(e.unique_opens)}</td>
                 <td>
                   <div className="flex items-center gap-2">
                     <div className="bar-track w-16">

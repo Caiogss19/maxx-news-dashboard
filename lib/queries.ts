@@ -196,7 +196,9 @@ export async function getSnapshot(): Promise<Snapshot> {
     }
     const dailyIdx = new Map(daily.map((r, i) => [r.date, i]));
     for (const r of ev) {
-      const date = (r.received_at ?? "").slice(0, 10);
+      // Usa beehiiv_created_at quando disponível (timestamp real); fallback pro received_at
+      const tsSource = r.beehiiv_created_at ?? r.received_at;
+      const date = (tsSource ?? "").slice(0, 10);
       const idx = dailyIdx.get(date);
       if (idx == null) continue;
       if (r.event_type === "subscription.created") daily[idx].created++;

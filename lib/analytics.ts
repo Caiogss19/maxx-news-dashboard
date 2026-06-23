@@ -62,7 +62,7 @@ export type EngagementSnapshot = {
     avgOpenRate: number;
     avgCtr: number;
   };
-  funnel: { received: number; openers: number; clickers: number };
+  funnel: { received: number; openers: number; clickers: number; isEstimated: boolean };
   daily: EngagementDaily[];
   byHour: Array<{ hour: number; opens: number; clicks: number }>;
   topLinks: Array<{ url: string; clicks: number; unique: number }>;
@@ -143,7 +143,7 @@ export async function getEditions(): Promise<EditionPerf[]> {
 
 export async function getEdition(postId: string): Promise<{
   edition: EditionPerf | null;
-  topLinks: Array<{ url: string; clicks: number }>;
+  topLinks: Array<{ url: string; clicks: number; uniqueClicks: number }>;
   engagedLeads: Array<{ email: string; opened: boolean; clicked: boolean; openedAt: string | null }>;
 }> {
   try {
@@ -152,20 +152,23 @@ export async function getEdition(postId: string): Promise<{
     const edition = ed && ed[0] ? coerceEdition(ed[0] as Record<string, unknown>) : null;
     if (!edition) return { edition: null, topLinks: [], engagedLeads: [] };
 
-    const { data: inter } = await sb
-      .from("beehiiv_interactions")
-      .select("email,event_type,occurred_at,link_url")
-      .eq("post_id", postId)
-      .limit(20000);
+    const [interRes, linkStatsRes] = await Promise.all([
+      sb
+        .from("beehiiv_interactions")
+        .select("email,event_type,occurred_at,link_url")
+        .eq("post_id", postId)
+        .limit(20000),
+      sb
+        .from("beehiiv_link_stats")
+        .select("url,total_clicks,unique_clicks")
+        .eq("post_id", postId)
+    ]);
 
-    const rows = (inter ?? []) as Array<{ email: string; event_type: string; occurred_at: string; link_url: string | null }>;
+    const rows = (interRes.data ?? []) as Array<{ email: string; event_type: string; occurred_at: string; link_url: string | null }>;
+    const linkStats = (linkStatsRes.data ?? []) as Array<{ url: string; total_clicks: number; unique_clicks: number }>;
 
-    const linkMap = new Map<string, number>();
     const leadMap = new Map<string, { opened: boolean; clicked: boolean; openedAt: string | null }>();
     for (const r of rows) {
-      if (r.event_type === "email.clicked" && r.link_url) {
-        linkMap.set(r.link_url, (linkMap.get(r.link_url) ?? 0) + 1);
-      }
       if (r.event_type === "email.opened" || r.event_type === "email.clicked") {
         const cur = leadMap.get(r.email) ?? { opened: false, clicked: false, openedAt: null };
         if (r.event_type === "email.opened") {
@@ -177,10 +180,24 @@ export async function getEdition(postId: string): Promise<{
       }
     }
 
-    const topLinks = Array.from(linkMap.entries())
-      .map(([url, clicks]) => ({ url, clicks }))
-      .sort((a, b) => b.clicks - a.clicks)
-      .slice(0, 6);
+    let topLinks: Array<{ url: string; clicks: number; uniqueClicks: number }>;
+    if (linkStats.length > 0) {
+      topLinks = linkStats
+        .map((r) => ({ url: r.url, clicks: r.total_clicks, uniqueClicks: r.unique_clicks }))
+        .sort((a, b) => b.clicks - a.clicks)
+        .slice(0, 10);
+    } else {
+      const linkMap = new Map<string, number>();
+      for (const r of rows) {
+        if (r.event_type === "email.clicked" && r.link_url) {
+          linkMap.set(r.link_url, (linkMap.get(r.link_url) ?? 0) + 1);
+        }
+      }
+      topLinks = Array.from(linkMap.entries())
+        .map(([url, clicks]) => ({ url, clicks, uniqueClicks: clicks }))
+        .sort((a, b) => b.clicks - a.clicks)
+        .slice(0, 10);
+    }
 
     const engagedLeads = Array.from(leadMap.entries())
       .map(([email, v]) => ({ email, ...v }))
@@ -207,7 +224,7 @@ export async function getLeads(): Promise<LeadEngagement[]> {
 export async function getEngagement(): Promise<EngagementSnapshot> {
   const empty: EngagementSnapshot = {
     totals: { editions: 0, delivered: 0, opens: 0, clicks: 0, bounces: 0, unsubscribes: 0, avgOpenRate: 0, avgCtr: 0 },
-    funnel: { received: 0, openers: 0, clickers: 0 },
+    funnel: { received: 0, openers: 0, clickers: 0, isEstimated: false },
     daily: [],
     byHour: [],
     topLinks: [],
@@ -239,9 +256,19 @@ export async function getEngagement(): Promise<EngagementSnapshot> {
       ? Math.round((editions.reduce((a, e) => a + e.ctr, 0) / editions.length) * 10) / 10
       : 0;
 
-    const received = leads.filter((l) => l.editions_received > 0).length;
-    const openers = leads.filter((l) => l.editions_opened > 0).length;
-    const clickers = leads.filter((l) => l.editions_clicked > 0).length;
+    let received = leads.filter((l) => l.editions_received > 0).length;
+    let openers = leads.filter((l) => l.editions_opened > 0).length;
+    let clickers = leads.filter((l) => l.editions_clicked > 0).length;
+    let isEstimated = false;
+    if (openers === 0 && editions.length > 0) {
+      const avgDelivered = Math.round(delivered / editions.length);
+      const avgOpens = Math.round(editions.reduce((a, e) => a + e.unique_opens, 0) / editions.length);
+      const avgClicks = Math.round(editions.reduce((a, e) => a + e.unique_clicks, 0) / editions.length);
+      received = avgDelivered;
+      openers = avgOpens;
+      clickers = avgClicks;
+      isEstimated = true;
+    }
 
     const buckets = [
       { label: "Nunca abriu", value: leads.filter((l) => l.editions_received > 0 && l.editions_opened === 0).length },
@@ -284,7 +311,7 @@ export async function getEngagement(): Promise<EngagementSnapshot> {
 
     return {
       totals: { editions: editions.length, delivered, opens, clicks, bounces, unsubscribes, avgOpenRate, avgCtr },
-      funnel: { received, openers, clickers },
+      funnel: { received, openers, clickers, isEstimated },
       daily,
       byHour,
       topLinks,

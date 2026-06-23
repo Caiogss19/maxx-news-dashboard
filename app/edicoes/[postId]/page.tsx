@@ -55,10 +55,13 @@ export default async function Page({ params }: { params: Promise<{ postId: strin
         <Funnel title="Funil de engajamento" caption="desta edição" steps={funnelSteps} accent="olive" />
         <BarList
           title="Links mais clicados"
-          caption="top 6"
-          items={topLinks.map((l) => ({ label: l.url.replace(/^https?:\/\//, ""), value: l.clicks }))}
+          caption={topLinks.length > 0 ? `${topLinks.length} links · total ${topLinks.reduce((a, l) => a + l.clicks, 0)} cliques` : "top 10"}
+          items={topLinks.map((l) => ({
+            label: l.url.replace(/^https?:\/\//, "").split("?")[0].slice(0, 60),
+            value: l.clicks
+          }))}
           accent="amber"
-          max={6}
+          max={10}
         />
       </div>
 
