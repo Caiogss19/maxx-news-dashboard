@@ -152,56 +152,50 @@ export async function getEdition(postId: string): Promise<{
     const edition = ed && ed[0] ? coerceEdition(ed[0] as Record<string, unknown>) : null;
     if (!edition) return { edition: null, topLinks: [], engagedLeads: [] };
 
-    const [interRes, linkStatsRes] = await Promise.all([
+    // Engajamento por assinante vem de beehiiv_post_engagement — a API do Beehiiv
+    // entrega agregado por post × assinante, não evento avulso. Bots ficam fora,
+    // senão o topo da lista é sempre scanner corporativo.
+    const [engRes, botRes, linkStatsRes] = await Promise.all([
       sb
-        .from("beehiiv_interactions")
-        .select("email,event_type,occurred_at,link_url")
+        .from("beehiiv_post_engagement")
+        .select("email,status,last_engaged_at,total_clicked,total_opened")
         .eq("post_id", postId)
-        .limit(20000),
+        .order("total_clicked", { ascending: false })
+        .limit(1000),
+      sb.from("v_bot_accounts").select("email"),
       sb
         .from("beehiiv_link_stats")
         .select("url,total_clicks,unique_clicks")
         .eq("post_id", postId)
     ]);
 
-    const rows = (interRes.data ?? []) as Array<{ email: string; event_type: string; occurred_at: string; link_url: string | null }>;
-    const linkStats = (linkStatsRes.data ?? []) as Array<{ url: string; total_clicks: number; unique_clicks: number }>;
+    const bots = new Set(
+      ((botRes.data ?? []) as Array<{ email: string }>).map((b) => b.email)
+    );
+    const linkStats = (linkStatsRes.data ?? []) as Array<{
+      url: string;
+      total_clicks: number;
+      unique_clicks: number;
+    }>;
 
-    const leadMap = new Map<string, { opened: boolean; clicked: boolean; openedAt: string | null }>();
-    for (const r of rows) {
-      if (r.event_type === "email.opened" || r.event_type === "email.clicked") {
-        const cur = leadMap.get(r.email) ?? { opened: false, clicked: false, openedAt: null };
-        if (r.event_type === "email.opened") {
-          cur.opened = true;
-          if (!cur.openedAt || new Date(r.occurred_at) < new Date(cur.openedAt)) cur.openedAt = r.occurred_at;
-        }
-        if (r.event_type === "email.clicked") cur.clicked = true;
-        leadMap.set(r.email, cur);
-      }
-    }
+    const topLinks = linkStats
+      .map((r) => ({ url: r.url, clicks: r.total_clicks, uniqueClicks: r.unique_clicks }))
+      .sort((a, b) => b.clicks - a.clicks)
+      .slice(0, 10);
 
-    let topLinks: Array<{ url: string; clicks: number; uniqueClicks: number }>;
-    if (linkStats.length > 0) {
-      topLinks = linkStats
-        .map((r) => ({ url: r.url, clicks: r.total_clicks, uniqueClicks: r.unique_clicks }))
-        .sort((a, b) => b.clicks - a.clicks)
-        .slice(0, 10);
-    } else {
-      const linkMap = new Map<string, number>();
-      for (const r of rows) {
-        if (r.event_type === "email.clicked" && r.link_url) {
-          linkMap.set(r.link_url, (linkMap.get(r.link_url) ?? 0) + 1);
-        }
-      }
-      topLinks = Array.from(linkMap.entries())
-        .map(([url, clicks]) => ({ url, clicks, uniqueClicks: clicks }))
-        .sort((a, b) => b.clicks - a.clicks)
-        .slice(0, 10);
-    }
-
-    const engagedLeads = Array.from(leadMap.entries())
-      .map(([email, v]) => ({ email, ...v }))
-      .sort((a, b) => Number(b.clicked) - Number(a.clicked) || Number(b.opened) - Number(a.opened))
+    const engagedLeads = ((engRes.data ?? []) as Array<{
+      email: string;
+      last_engaged_at: string | null;
+      total_clicked: number;
+      total_opened: number;
+    }>)
+      .filter((r) => !bots.has(r.email))
+      .map((r) => ({
+        email: r.email,
+        opened: r.total_opened > 0,
+        clicked: r.total_clicked > 0,
+        openedAt: r.last_engaged_at
+      }))
       .slice(0, 25);
 
     return { edition, topLinks, engagedLeads };
@@ -344,11 +338,11 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
         .order("received_at", { ascending: true })
         .limit(200),
       sb
-        .from("beehiiv_interactions")
-        .select("post_id,event_type,occurred_at,link_url")
+        .from("beehiiv_post_engagement")
+        .select("post_id,status,last_engaged_at,total_clicked,total_opened")
         .eq("email", email)
-        .order("occurred_at", { ascending: true })
-        .limit(2000),
+        .order("last_engaged_at", { ascending: true })
+        .limit(500),
       sb.from("beehiiv_editions").select("post_id,edition_number,title,sent_at").eq("status", "sent")
     ]);
 
@@ -359,20 +353,27 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
       return { post_id: String(rr.post_id), edition_number: num(rr.edition_number), title: String(rr.title), sent_at: String(rr.sent_at) };
     });
 
-    const inter = (interRes.data ?? []) as Array<{ post_id: string; event_type: string; occurred_at: string; link_url: string | null }>;
-    const byEdition = new Map<string, { received: boolean; opened: boolean; clicked: boolean; openedAt: string | null; clickedAt: string | null }>();
+    // Uma linha por (edição × assinante), já agregada pelo Beehiiv. O timestamp é
+    // do último engajamento naquela edição — a API não devolve evento a evento.
+    const inter = (interRes.data ?? []) as Array<{
+      post_id: string;
+      status: string;
+      last_engaged_at: string | null;
+      total_clicked: number;
+      total_opened: number;
+    }>;
+    const byEdition = new Map<
+      string,
+      { received: boolean; opened: boolean; clicked: boolean; openedAt: string | null; clickedAt: string | null }
+    >();
     for (const r of inter) {
-      const cur = byEdition.get(r.post_id) ?? { received: false, opened: false, clicked: false, openedAt: null, clickedAt: null };
-      if (r.event_type === "email.delivered") cur.received = true;
-      if (r.event_type === "email.opened") {
-        cur.opened = true;
-        if (!cur.openedAt) cur.openedAt = r.occurred_at;
-      }
-      if (r.event_type === "email.clicked") {
-        cur.clicked = true;
-        if (!cur.clickedAt) cur.clickedAt = r.occurred_at;
-      }
-      byEdition.set(r.post_id, cur);
+      byEdition.set(r.post_id, {
+        received: true,
+        opened: r.total_opened > 0,
+        clicked: r.total_clicked > 0,
+        openedAt: r.total_opened > 0 ? r.last_engaged_at : null,
+        clickedAt: r.total_clicked > 0 ? r.last_engaged_at : null
+      });
     }
 
     const perEdition = editions
@@ -415,11 +416,26 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
     for (const r of inter) {
       const ed = edTitle.get(r.post_id);
       const edLabel = ed ? `Ed. ${ed.edition_number} · ${ed.title}` : r.post_id;
-      if (r.event_type === "email.delivered") timeline.push({ at: r.occurred_at, kind: "delivered", label: "Recebeu edição", detail: edLabel });
-      if (r.event_type === "email.opened") timeline.push({ at: r.occurred_at, kind: "opened", label: "Abriu edição", detail: edLabel });
-      if (r.event_type === "email.clicked") timeline.push({ at: r.occurred_at, kind: "clicked", label: "Clicou em link", detail: r.link_url ?? edLabel });
-      if (r.event_type === "email.unsubscribed") timeline.push({ at: r.occurred_at, kind: "unsubscribed", label: "Descadastrou", detail: edLabel });
-      if (r.event_type === "email.bounced") timeline.push({ at: r.occurred_at, kind: "bounced", label: "Bounce", detail: edLabel });
+      const at = r.last_engaged_at ?? ed?.sent_at ?? "";
+      if (!at) continue;
+      if (r.total_clicked > 0) {
+        timeline.push({
+          at,
+          kind: "clicked",
+          label: r.total_clicked === 1 ? "Clicou em link" : `Clicou ${r.total_clicked}×`,
+          detail: edLabel
+        });
+      } else if (r.total_opened > 0) {
+        timeline.push({
+          at,
+          kind: "opened",
+          label: r.total_opened === 1 ? "Abriu edição" : `Abriu ${r.total_opened}×`,
+          detail: edLabel
+        });
+      }
+      if (r.status === "unsubscribed") {
+        timeline.push({ at, kind: "unsubscribed", label: "Descadastrou", detail: edLabel });
+      }
     }
     timeline.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
