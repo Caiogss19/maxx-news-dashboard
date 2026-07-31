@@ -213,7 +213,15 @@ export async function getEdition(postId: string): Promise<{
 export async function getLeads(): Promise<LeadEngagement[]> {
   try {
     const sb = createSupabaseServer();
-    const { data, error } = await sb.from("v_lead_engagement").select("*").limit(5000);
+    // O PostgREST corta em 1000 linhas (a base tem 4015). Sem ordenar no servidor
+    // a fatia é arbitrária e os leads engajados podem ficar de fora — então a
+    // ordenação vai para o Postgres, não para o JS.
+    const { data, error } = await sb
+      .from("v_lead_engagement")
+      .select("*")
+      .order("last_engaged_at", { ascending: false, nullsFirst: false })
+      .order("total_clicks", { ascending: false })
+      .limit(1000);
     if (error || !data) return [];
     return data.map((r) => coerceLead(r as Record<string, unknown>));
   } catch {

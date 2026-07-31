@@ -46,7 +46,7 @@ export function RecentEvents({ rows }: { rows: EventRow[] }) {
                       ok
                     </span>
                   ) : r.rd_sync_status_code && r.rd_sync_status_code >= 400 ? (
-                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-crimson-soft text-crimson">
+                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-danger-soft text-danger">
                       {r.rd_sync_status_code}
                     </span>
                   ) : (

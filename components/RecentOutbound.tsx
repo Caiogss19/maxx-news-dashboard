@@ -37,7 +37,7 @@ export function RecentOutbound({ rows }: { rows: OutboundRow[] }) {
                     </span>
                   ) : (
                     <span
-                      className="text-xs font-mono px-2 py-0.5 rounded-full bg-crimson-soft text-crimson"
+                      className="text-xs font-mono px-2 py-0.5 rounded-full bg-danger-soft text-danger"
                       title={r.error_message ?? "erro"}
                     >
                       {r.beehiiv_status_code ?? "erro"}

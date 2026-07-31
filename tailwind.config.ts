@@ -22,12 +22,15 @@ const config: Config = {
         navy: "var(--navy)",
         "navy-soft": "var(--navy-soft)",
         plum: "var(--plum)",
-        "plum-soft": "var(--plum-soft)"
+        "plum-soft": "var(--plum-soft)",
+        danger: "var(--danger)",
+        "danger-soft": "var(--danger-soft)",
+        accent: "var(--accent)",
+        ok: "var(--ok)"
       },
       fontFamily: {
-        serif: ['Fraunces', 'Georgia', 'serif'],
-        sans: ['Inter', '-apple-system', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'monospace']
+        sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'ui-monospace', 'monospace']
       }
     }
   },
