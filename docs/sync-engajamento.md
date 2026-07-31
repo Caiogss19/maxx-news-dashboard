@@ -56,19 +56,30 @@ Conectores necessários: **Beehiiv** + **Supabase**.
 `0 9 */3 * *` — a cada 3 dias, 06:00 BRT (09:00 UTC), depois do sync diário de
 edições.
 
-## Lacuna conhecida: aberturas por assinante
+## Duas fontes, dois papéis
 
-O backfill de 31/07/2026 cobriu **apenas quem clicou** (164 registros nas 8
-edições). Os ~1.150 abridores por edição não foram puxados: seriam ~9.200 linhas,
-cerca de 92 chamadas paginadas.
+| Tabela | Fonte | Cobre | Serve para |
+|---|---|---|---|
+| `beehiiv_subscriber_stats` | REST v2 `/subscriptions?expand[]=stats` | base inteira (4.015) | abertura e clique por lead, incluindo quem abre e nunca clica |
+| `beehiiv_post_engagement` | MCP `list_post_subscriber_engagement` | só quem engajou, por edição | recorrência ("8 de 8"), timestamp, detecção de scanner |
 
-Consequência: `v_lead_engagement.editions_opened` só conta quem também clicou. Por
-isso o diretório em `/leads` mostra **edições clicadas**, não taxa de abertura por
-lead — exibir "0%" para quem abriu mas não clicou seria mentira. A abertura
-agregada por edição (`v_edition_performance`) está correta e vem do snapshot do
-Beehiiv, sem depender disso.
+O objeto `stats` da API devolve, por assinante:
 
-Para fechar a lacuna, rodar o passo 3 com `statuses: ["opened"]` nas 8 edições.
+```
+total_sent · total_received · total_unique_opened
+total_clicked · total_unique_clicked · open_rate · click_rate
+```
+
+**Atenção:** não são `emails_received` nem `click_through_rate`, como a doc
+pública sugere. A primeira versão deste sync usou esses nomes e gravou 0 nas
+4.015 linhas sem erro nenhum — o upsert só não encontrava os campos.
+
+Estado em 31/07/2026: 3.936 leads com envio, 2.227 com abertura, 149 com clique.
+A abertura média por lead (33,2%) bate com a agregada por edição (32,9%), o que
+valida o número por dois caminhos independentes.
+
+O que ainda só existe via MCP é a granularidade **por edição × assinante** — os
+`total_unique_opened` da REST dizem *quantas* o lead abriu, não *quais*.
 
 ## Filtro de scanner
 

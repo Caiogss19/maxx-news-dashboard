@@ -180,8 +180,7 @@ vars — trocar lá muda a paleta inteira. Uma convenção importa: `--crimson` 
 
 ## 9 · Próximos passos
 
-- [ ] Backfill de aberturas por assinante (hoje só cliques — ver lacuna em `docs/sync-engajamento.md`)
-- [ ] Criar a rotina de 3 dias assim que o conector Beehiiv estiver disponível
+- [ ] Rotina de recorrência por edição (MCP do Beehiiv) — a REST diz *quantas* edições o lead abriu, não *quais*
 - [ ] Cohorts de retenção (% ativos após N dias do opt-in)
 - [ ] Cruzar leitor engajado com MQL no Pipedrive
 - [ ] Alerta no Teams quando um scanner novo entrar no ranking
