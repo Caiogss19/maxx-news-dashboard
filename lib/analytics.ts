@@ -141,21 +141,51 @@ export async function getEditions(): Promise<EditionPerf[]> {
   }
 }
 
+export type LinkDaEdicao = {
+  url: string;
+  urlHash: string | null;
+  clicks: number;
+  uniqueClicks: number;
+  verifiedClicks: number;
+  verifiedUniqueClicks: number;
+};
+
+export type CliqueEmLink = {
+  urlHash: string;
+  email: string;
+  clicks: number;
+  clickedAt: string | null;
+  isBot: boolean;
+};
+
+const EDICAO_VAZIA = {
+  edition: null,
+  topLinks: [],
+  engagedLeads: [],
+  emailHtml: null,
+  links: [],
+  cliquesPorLink: []
+};
+
 export async function getEdition(postId: string): Promise<{
   edition: EditionPerf | null;
   topLinks: Array<{ url: string; clicks: number; uniqueClicks: number }>;
   engagedLeads: Array<{ email: string; opened: boolean; clicked: boolean; openedAt: string | null }>;
+  /** Render do e-mail enviado, base do mapa de cliques. Null em edição antiga. */
+  emailHtml: string | null;
+  links: LinkDaEdicao[];
+  cliquesPorLink: CliqueEmLink[];
 }> {
   try {
     const sb = createSupabaseServer();
     const { data: ed } = await sb.from("v_edition_performance").select("*").eq("post_id", postId).limit(1);
     const edition = ed && ed[0] ? coerceEdition(ed[0] as Record<string, unknown>) : null;
-    if (!edition) return { edition: null, topLinks: [], engagedLeads: [] };
+    if (!edition) return EDICAO_VAZIA;
 
     // Engajamento por assinante vem de beehiiv_post_engagement — a API do Beehiiv
     // entrega agregado por post × assinante, não evento avulso. Bots ficam fora,
     // senão o topo da lista é sempre scanner corporativo.
-    const [engRes, botRes, linkStatsRes] = await Promise.all([
+    const [engRes, botRes, linkStatsRes, htmlRes, cliquesRes] = await Promise.all([
       sb
         .from("beehiiv_post_engagement")
         .select("email,status,last_engaged_at,total_clicked,total_opened")
@@ -165,8 +195,15 @@ export async function getEdition(postId: string): Promise<{
       sb.from("v_bot_accounts").select("email"),
       sb
         .from("beehiiv_link_stats")
-        .select("url,total_clicks,unique_clicks")
+        .select("url,url_hash,total_clicks,unique_clicks,verified_total_clicks,verified_unique_clicks")
+        .eq("post_id", postId),
+      sb.from("beehiiv_editions").select("email_html").eq("post_id", postId).limit(1),
+      sb
+        .from("beehiiv_link_clicks")
+        .select("url_hash,email,clicks,clicked_at")
         .eq("post_id", postId)
+        .order("clicked_at", { ascending: false })
+        .limit(1000)
     ]);
 
     const bots = new Set(
@@ -174,12 +211,42 @@ export async function getEdition(postId: string): Promise<{
     );
     const linkStats = (linkStatsRes.data ?? []) as Array<{
       url: string;
+      url_hash: string | null;
       total_clicks: number;
       unique_clicks: number;
+      verified_total_clicks: number | null;
+      verified_unique_clicks: number | null;
     }>;
 
-    const topLinks = linkStats
-      .map((r) => ({ url: r.url, clicks: r.total_clicks, uniqueClicks: r.unique_clicks }))
+    const links: LinkDaEdicao[] = linkStats.map((r) => ({
+      url: r.url,
+      urlHash: r.url_hash,
+      clicks: num(r.total_clicks),
+      uniqueClicks: num(r.unique_clicks),
+      verifiedClicks: num(r.verified_total_clicks),
+      verifiedUniqueClicks: num(r.verified_unique_clicks)
+    }));
+
+    const emailHtml =
+      ((htmlRes.data ?? [])[0] as { email_html?: string } | undefined)?.email_html ?? null;
+
+    const cliquesPorLink: CliqueEmLink[] = (
+      (cliquesRes.data ?? []) as Array<{
+        url_hash: string;
+        email: string;
+        clicks: number;
+        clicked_at: string | null;
+      }>
+    ).map((r) => ({
+      urlHash: r.url_hash,
+      email: r.email,
+      clicks: num(r.clicks),
+      clickedAt: r.clicked_at,
+      isBot: bots.has(r.email)
+    }));
+
+    const topLinks = links
+      .map((r) => ({ url: r.url, clicks: r.clicks, uniqueClicks: r.uniqueClicks }))
       .sort((a, b) => b.clicks - a.clicks)
       .slice(0, 10);
 
@@ -198,9 +265,9 @@ export async function getEdition(postId: string): Promise<{
       }))
       .slice(0, 25);
 
-    return { edition, topLinks, engagedLeads };
+    return { edition, topLinks, engagedLeads, emailHtml, links, cliquesPorLink };
   } catch {
-    return { edition: null, topLinks: [], engagedLeads: [] };
+    return EDICAO_VAZIA;
   }
 }
 

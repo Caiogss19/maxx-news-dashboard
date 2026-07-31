@@ -3,13 +3,20 @@ import { getEdition } from "@/lib/analytics";
 import { KPI } from "@/components/KPI";
 import { Funnel } from "@/components/Funnel";
 import { BarList } from "@/components/BarList";
+import { EmailClickMap } from "@/components/EmailClickMap";
+import { montarMapaDeCliques } from "@/lib/clickmap";
 import { fmtNum, fmtPct, fmtDateTime, truncate } from "@/lib/format";
 
 export const revalidate = 259200; // 3 dias — casado com o job de sync
 
 export default async function Page({ params }: { params: Promise<{ postId: string }> }) {
   const { postId } = await params;
-  const { edition, topLinks, engagedLeads } = await getEdition(postId);
+  const { edition, topLinks, engagedLeads, emailHtml, links, cliquesPorLink } =
+    await getEdition(postId);
+
+  // Sem HTML (edição antiga, ou sync do render ainda não rodou) a página cai na
+  // lista de barras — sem quebrar.
+  const mapa = montarMapaDeCliques(emailHtml, links);
 
   if (!edition) {
     return (
@@ -55,15 +62,43 @@ export default async function Page({ params }: { params: Promise<{ postId: strin
         <Funnel title="Funil de engajamento" caption="desta edição" steps={funnelSteps} accent="olive" />
         <BarList
           title="Links mais clicados"
-          caption={topLinks.length > 0 ? `${topLinks.length} links · total ${topLinks.reduce((a, l) => a + l.clicks, 0)} cliques` : "top 10"}
-          items={topLinks.map((l) => ({
-            label: l.url.replace(/^https?:\/\//, "").split("?")[0].slice(0, 60),
-            value: l.clicks
-          }))}
+          caption={
+            links.length > 0
+              ? `${links.length} links · ${links.reduce((a, l) => a + l.verifiedClicks, 0)} cliques verificados`
+              : "top 10"
+          }
+          items={[...links]
+            .sort((a, b) => b.verifiedClicks - a.verifiedClicks || b.clicks - a.clicks)
+            .map((l) => ({
+              label: l.url.replace(/^https?:\/\//, "").split("?")[0].slice(0, 60),
+              value: l.verifiedClicks,
+              hint: `${l.clicks} brutos`
+            }))}
           accent="amber"
           max={10}
         />
       </div>
+
+      {mapa && (
+        <div className="mb-4">
+          <EmailClickMap
+            html={mapa.html}
+            marcados={mapa.marcados.map((m) => ({
+              idx: m.idx,
+              url: m.url,
+              urlHash: m.urlHash,
+              clicks: m.clicks,
+              verifiedClicks: m.verifiedClicks
+            }))}
+            cliques={cliquesPorLink}
+            foraDoCorpo={mapa.foraDoCorpo.map((l) => ({
+              url: l.url,
+              clicks: l.clicks,
+              verifiedClicks: l.verifiedClicks
+            }))}
+          />
+        </div>
+      )}
 
       <div className="paper overflow-hidden">
         <div className="flex items-baseline justify-between p-6 pb-4">
