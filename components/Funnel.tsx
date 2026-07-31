@@ -1,4 +1,4 @@
-import { fmtPct } from "@/lib/format";
+import { fmtNum, fmtPct } from "@/lib/format";
 
 type Step = { label: string; value: number; sublabel?: string };
 
@@ -25,44 +25,48 @@ export function Funnel({
   const color = accentMap[accent];
 
   return (
-    <div className="paper p-6">
-      <div className="flex items-baseline justify-between mb-2">
-        <h3 className="font-display text-xl">{title}</h3>
-        {caption && <span className="font-mono-tag">{caption}</span>}
+    <div className="paper">
+      <div className="panel-head">
+        <h3 className="font-display" style={{ fontSize: 17, fontWeight: 500 }}>
+          {title}
+        </h3>
+        {caption && <span className="font-mono-tag whitespace-nowrap">{caption}</span>}
       </div>
-      <div className="space-y-3 mt-6">
+      {/* Layout em linhas de rótulo + barra, não em grid de 12 colunas: dentro de
+          um painel estreito o grid espremia o rótulo e quebrava a conversão em
+          várias linhas. A conversão fica acima da barra, alinhada à direita. */}
+      <div className="p-5 space-y-4">
         {steps.map((s, i) => {
           const w = (s.value / max) * 100;
-          const conv = i > 0 ? (steps[i - 1].value > 0 ? (s.value / steps[i - 1].value) * 100 : 0) : null;
+          const conv =
+            i > 0 ? (steps[i - 1].value > 0 ? (s.value / steps[i - 1].value) * 100 : 0) : null;
           return (
-            <div key={i} className="grid grid-cols-12 items-center gap-3">
-              <div className="col-span-3">
-                <div className="text-sm">{s.label}</div>
-                {s.sublabel && <div className="text-xs text-ink-faint">{s.sublabel}</div>}
-              </div>
-              <div className="col-span-7">
-                <div className="relative">
-                  <div
-                    className="h-9 rounded-sm flex items-center px-3 text-sm font-semibold font-mono"
-                    style={{
-                      width: `${Math.max(w, 6)}%`,
-                      background: color,
-                      /* texto na cor do fundo da página: contraste garantido sobre
-                         qualquer acento claro do tema escuro */
-                      color: "var(--bg)",
-                      minWidth: 60
-                    }}
-                  >
-                    {s.value}
-                  </div>
+            <div key={i}>
+              <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                <div className="min-w-0">
+                  <span className="text-sm">{s.label}</span>
+                  {s.sublabel && (
+                    <span className="text-xs text-ink-faint ml-2 truncate">{s.sublabel}</span>
+                  )}
                 </div>
-              </div>
-              <div className="col-span-2 text-right">
                 {conv != null && (
-                  <span className="text-xs text-ink-mute">
+                  <span className="text-xs text-ink-mute whitespace-nowrap">
                     <span className="font-mono text-ink">{fmtPct(conv, 1)}</span> da etapa anterior
                   </span>
                 )}
+              </div>
+              <div
+                className="h-8 rounded-sm flex items-center px-3 text-sm font-semibold font-mono"
+                style={{
+                  width: `${Math.max(w, 8)}%`,
+                  background: color,
+                  /* texto na cor do fundo da página: contraste garantido sobre
+                     qualquer acento claro do tema escuro */
+                  color: "var(--bg)",
+                  minWidth: 64
+                }}
+              >
+                {fmtNum(s.value)}
               </div>
             </div>
           );
