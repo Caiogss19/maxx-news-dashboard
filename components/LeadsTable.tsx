@@ -1,7 +1,6 @@
 import Link from "next/link";
 import type { LeadEngagement } from "@/lib/analytics";
-import { relativeTime, truncate } from "@/lib/format";
-import { EditionDots } from "@/components/EditionDots";
+import { fmtPct, relativeTime, truncate } from "@/lib/format";
 
 export function LeadsTable({ leads }: { leads: LeadEngagement[] }) {
   return (
@@ -20,7 +19,7 @@ export function LeadsTable({ leads }: { leads: LeadEngagement[] }) {
               <th>Origem</th>
               <th>Status</th>
               <th className="num">Recebidas</th>
-              <th>Edições clicadas</th>
+              <th>Abertura</th>
               <th className="num">Cliques</th>
               <th>Última interação</th>
             </tr>
@@ -48,16 +47,26 @@ export function LeadsTable({ leads }: { leads: LeadEngagement[] }) {
                 </td>
                 <td className="num">{l.editions_received}</td>
                 <td>
-                  {/* Só temos engajamento por assinante para quem clicou — abertura
-                      por lead não é exibida aqui para não passar "0%" como se fosse
-                      "nunca abriu". A abertura agregada por edição fica em /edicoes. */}
-                  {l.editions_clicked > 0 ? (
-                    <EditionDots
-                      filled={l.editions_clicked}
-                      total={Math.max(l.editions_received, l.editions_clicked)}
-                    />
+                  {l.editions_received > 0 ? (
+                    <div className="flex items-center gap-2">
+                      <div className="bar-track w-14">
+                        <div
+                          className="bar-fill"
+                          style={{
+                            width: `${Math.min(100, l.open_rate)}%`,
+                            background: "var(--olive)"
+                          }}
+                        />
+                      </div>
+                      <span className="font-mono text-xs w-14">
+                        {fmtPct(l.open_rate)}
+                      </span>
+                      <span className="text-xs text-ink-faint whitespace-nowrap">
+                        {l.editions_opened} de {l.editions_received}
+                      </span>
+                    </div>
                   ) : (
-                    <span className="text-xs text-ink-faint">nenhuma</span>
+                    <span className="text-xs text-ink-faint">sem envio</span>
                   )}
                 </td>
                 <td className="num">{l.total_clicks}</td>

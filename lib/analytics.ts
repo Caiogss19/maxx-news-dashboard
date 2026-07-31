@@ -220,6 +220,7 @@ export async function getLeads(): Promise<LeadEngagement[]> {
       .from("v_lead_engagement")
       .select("*")
       .order("last_engaged_at", { ascending: false, nullsFirst: false })
+      .order("editions_opened", { ascending: false })
       .order("total_clicks", { ascending: false })
       .limit(1000);
     if (error || !data) return [];
