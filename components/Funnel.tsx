@@ -11,14 +11,16 @@ export function Funnel({
   title: string;
   caption?: string;
   steps: Step[];
-  accent?: "olive" | "crimson" | "amber" | "navy";
+  accent?: "olive" | "crimson" | "amber" | "navy" | "plum" | "danger";
 }) {
   const max = Math.max(1, ...steps.map((s) => s.value));
   const accentMap: Record<string, string> = {
     olive: "var(--olive)",
     crimson: "var(--crimson)",
     amber: "var(--amber)",
-    navy: "var(--navy)"
+    navy: "var(--navy)",
+    plum: "var(--plum)",
+    danger: "var(--danger)"
   };
   const color = accentMap[accent];
 
@@ -41,11 +43,13 @@ export function Funnel({
               <div className="col-span-7">
                 <div className="relative">
                   <div
-                    className="h-9 rounded-sm flex items-center px-3 text-sm font-medium"
+                    className="h-9 rounded-sm flex items-center px-3 text-sm font-semibold font-mono"
                     style={{
                       width: `${Math.max(w, 6)}%`,
                       background: color,
-                      color: "white",
+                      /* texto na cor do fundo da página: contraste garantido sobre
+                         qualquer acento claro do tema escuro */
+                      color: "var(--bg)",
                       minWidth: 60
                     }}
                   >

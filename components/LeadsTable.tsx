@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { LeadEngagement } from "@/lib/analytics";
-import { fmtPct, relativeTime, truncate } from "@/lib/format";
+import { relativeTime, truncate } from "@/lib/format";
+import { EditionDots } from "@/components/EditionDots";
 
 export function LeadsTable({ leads }: { leads: LeadEngagement[] }) {
   return (
@@ -18,9 +19,9 @@ export function LeadsTable({ leads }: { leads: LeadEngagement[] }) {
               <th>Email</th>
               <th>Origem</th>
               <th>Status</th>
-              <th>Recebidas</th>
-              <th>Abertura</th>
-              <th>Cliques</th>
+              <th className="num">Recebidas</th>
+              <th>Edições clicadas</th>
+              <th className="num">Cliques</th>
               <th>Última interação</th>
             </tr>
           </thead>
@@ -38,23 +39,28 @@ export function LeadsTable({ leads }: { leads: LeadEngagement[] }) {
                 </td>
                 <td>
                   {l.churned ? (
-                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-crimson-soft text-crimson">churn</span>
+                    <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-danger-soft text-danger">churn</span>
                   ) : l.confirmed ? (
                     <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-olive-soft text-olive">ativo</span>
                   ) : (
                     <span className="text-xs font-mono px-2 py-0.5 rounded-full bg-amber-soft text-amber">pendente</span>
                   )}
                 </td>
-                <td className="font-mono text-sm">{l.editions_received}</td>
+                <td className="num">{l.editions_received}</td>
                 <td>
-                  <div className="flex items-center gap-2">
-                    <div className="bar-track w-14">
-                      <div className="bar-fill" style={{ width: `${Math.min(100, l.open_rate)}%`, background: "var(--olive)" }} />
-                    </div>
-                    <span className="font-mono text-xs w-12">{fmtPct(l.open_rate)}</span>
-                  </div>
+                  {/* Só temos engajamento por assinante para quem clicou — abertura
+                      por lead não é exibida aqui para não passar "0%" como se fosse
+                      "nunca abriu". A abertura agregada por edição fica em /edicoes. */}
+                  {l.editions_clicked > 0 ? (
+                    <EditionDots
+                      filled={l.editions_clicked}
+                      total={Math.max(l.editions_received, l.editions_clicked)}
+                    />
+                  ) : (
+                    <span className="text-xs text-ink-faint">nenhuma</span>
+                  )}
                 </td>
-                <td className="font-mono text-sm">{l.total_clicks}</td>
+                <td className="num">{l.total_clicks}</td>
                 <td className="text-xs text-ink-mute whitespace-nowrap">
                   {l.last_engaged_at ? relativeTime(l.last_engaged_at) : "—"}
                 </td>

@@ -9,8 +9,8 @@ const KIND_COLOR: Record<string, string> = {
   delivered: "var(--ink-faint)",
   opened: "var(--olive)",
   clicked: "var(--amber)",
-  unsubscribed: "var(--crimson)",
-  bounced: "var(--crimson)"
+  unsubscribed: "var(--danger)",
+  bounced: "var(--danger)"
 };
 
 export function LeadJourneyView({ email, journey }: { email: string; journey: LeadJourney }) {
@@ -43,7 +43,7 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
         </div>
         <div className="flex items-center gap-3">
           {lead.churned ? (
-            <span className="text-xs font-mono px-3 py-1 rounded-full bg-crimson-soft text-crimson">churn</span>
+            <span className="text-xs font-mono px-3 py-1 rounded-full bg-danger-soft text-danger">churn</span>
           ) : lead.confirmed ? (
             <span className="text-xs font-mono px-3 py-1 rounded-full bg-olive-soft text-olive">ativo</span>
           ) : (

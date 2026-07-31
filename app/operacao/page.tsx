@@ -8,7 +8,7 @@ import { RecentEvents } from "@/components/RecentEvents";
 import { RecentOutbound } from "@/components/RecentOutbound";
 import { fmtNum, fmtPct } from "@/lib/format";
 
-export const revalidate = 30;
+export const revalidate = 259200; // 3 dias — casado com o job de sync
 
 export default async function Page() {
   const [s, eng] = await Promise.all([getSnapshot(), getEngagement()]);
@@ -67,7 +67,7 @@ export default async function Page() {
               </div>
               <div>
                 <div className="text-xs text-ink-mute">Falhas</div>
-                <div className="num-display text-3xl text-crimson mt-1">{s.outbound.fail}</div>
+                <div className="num-display text-3xl text-danger mt-1">{s.outbound.fail}</div>
               </div>
             </div>
             <div className="mt-4 pt-4 border-t border-rule">
@@ -81,7 +81,7 @@ export default async function Page() {
               caption="agrupado por error_message"
               items={s.outbound.errorsByMessage.map((g) => ({ label: g.message, value: g.count }))}
               total={s.outbound.fail}
-              accent="crimson"
+              accent="danger"
               max={8}
             />
           </div>

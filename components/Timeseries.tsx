@@ -12,8 +12,28 @@ export function Timeseries({ data }: { data: Point[] }) {
         <h3 className="font-display text-xl">Crescimento líquido · 30d</h3>
         <span className="font-mono-tag">inscritos vs. unsubs por dia</span>
       </div>
-      <div className="text-xs text-ink-mute mb-4">
-        Verde = inscrições. Vermelho = unsubscribes. Linha sólida = saldo líquido.
+      <div className="flex flex-wrap gap-4 text-xs text-ink-mute mb-4">
+        <span className="inline-flex items-center gap-1.5">
+          <i
+            className="inline-block w-3 h-[3px] rounded-full"
+            style={{ background: "var(--olive)" }}
+          />
+          inscrições
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <i
+            className="inline-block w-3 h-[3px] rounded-full"
+            style={{ background: "var(--danger)" }}
+          />
+          unsubscribes
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <i
+            className="inline-block w-3 h-[3px] rounded-full"
+            style={{ background: "var(--ink)" }}
+          />
+          saldo líquido
+        </span>
       </div>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
@@ -24,8 +44,8 @@ export function Timeseries({ data }: { data: Point[] }) {
                 <stop offset="100%" stopColor="var(--olive)" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="gDeleted" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="var(--crimson)" stopOpacity={0.3} />
-                <stop offset="100%" stopColor="var(--crimson)" stopOpacity={0} />
+                <stop offset="0%" stopColor="var(--danger)" stopOpacity={0.3} />
+                <stop offset="100%" stopColor="var(--danger)" stopOpacity={0} />
               </linearGradient>
             </defs>
             <CartesianGrid stroke="var(--rule)" strokeDasharray="2 4" vertical={false} />
@@ -60,7 +80,7 @@ export function Timeseries({ data }: { data: Point[] }) {
             <Area
               type="monotone"
               dataKey="deleted"
-              stroke="var(--crimson)"
+              stroke="var(--danger)"
               strokeWidth={1.5}
               fill="url(#gDeleted)"
               name="Removidos"

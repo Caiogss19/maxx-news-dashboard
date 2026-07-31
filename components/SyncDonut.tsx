@@ -17,7 +17,7 @@ export function SyncDonut({
   const data: Slice[] = [
     { name: "Sincronizados", value: synced, color: "var(--olive)" },
     { name: "Pendentes", value: pending, color: "var(--amber)" },
-    { name: "Falharam", value: failed, color: "var(--crimson)" }
+    { name: "Falharam", value: failed, color: "var(--danger)" }
   ];
 
   return (

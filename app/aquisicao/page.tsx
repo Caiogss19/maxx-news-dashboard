@@ -7,7 +7,7 @@ import { BarList } from "@/components/BarList";
 import { KPI } from "@/components/KPI";
 import { fmtNum, fmtPct } from "@/lib/format";
 
-export const revalidate = 30;
+export const revalidate = 259200; // 3 dias — casado com o job de sync
 
 export default async function Page() {
   const [s, eng] = await Promise.all([getSnapshot(), getEngagement()]);

@@ -3,7 +3,7 @@ import { getEngagement } from "@/lib/analytics";
 import { KPI } from "@/components/KPI";
 import { fmtNum, fmtPct } from "@/lib/format";
 
-export const revalidate = 30;
+export const revalidate = 259200; // 3 dias — casado com o job de sync
 
 export default async function Page() {
   const [s, eng] = await Promise.all([getSnapshot(), getEngagement()]);
@@ -16,16 +16,18 @@ export default async function Page() {
           <span className="accent-line" />
           Relatório operacional · tempo real · Beehiiv ↔ RD Station
         </div>
-        <h1 className="font-display text-5xl md:text-7xl leading-[1.02] mb-6 tracking-tight max-w-4xl">
+        <h1
+          className="font-display mb-6 max-w-4xl"
+          style={{ fontSize: "clamp(32px, 5vw, 56px)", lineHeight: 1.04, fontWeight: 400 }}
+        >
           {s.base.created > 0 ? (
             <>
-              <span className="num-display">{fmtNum(s.base.active)}</span>{" "}
-              <em className="font-serif-italic text-ink-mute">subscribers ativos</em>
-              <span className="text-ink-mute">.</span>
+              <span className="num-display font-display-em">{fmtNum(s.base.active)}</span>{" "}
+              subscribers ativos<span className="text-ink-mute">.</span>
             </>
           ) : (
             <>
-              Aguardando o primeiro <em className="font-serif-italic">evento</em>
+              Aguardando o primeiro <span className="font-display-em">evento</span>
               <span className="text-ink-mute">.</span>
             </>
           )}
@@ -35,7 +37,7 @@ export default async function Page() {
             <>
               {s.base.created} inscrições no histórico · {fmtPct(s.base.confirmRate)} confirmaram opt-in ·
               taxa de churn {fmtPct(s.base.churnRate)} · saldo líquido{" "}
-              <span className={s.base.netGrowth >= 0 ? "text-olive" : "text-crimson"}>
+              <span className={s.base.netGrowth >= 0 ? "text-olive" : "text-danger"}>
                 {s.base.netGrowth >= 0 ? "+" : ""}
                 {s.base.netGrowth}
               </span>{" "}
@@ -75,7 +77,7 @@ export default async function Page() {
           label="Eventos sync c/ RD"
           value={fmtNum(s.events.rdSynced.synced)}
           hint={`${s.events.rdSynced.failed} falharam · ${s.events.rdSynced.pending} pendentes`}
-          accent={s.events.rdSynced.failed > 0 ? "crimson" : "olive"}
+          accent={s.events.rdSynced.failed > 0 ? "danger" : "olive"}
         />
       </div>
 
