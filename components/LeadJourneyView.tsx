@@ -22,6 +22,14 @@ const KIND_COLOR: Record<string, string> = {
 export function LeadJourneyView({ email, journey }: { email: string; journey: LeadJourney }) {
   const { lead, perEdition, timeline, cliques } = journey;
 
+  // Quantas edições com clique têm detalhamento, contra quantas o agregado diz
+  // que existem. Sem esta conta a tabela mostra "1 link" para quem clicou em 3
+  // edições e passa a impressão de que o resto não aconteceu.
+  const edicoesDetalhadas = new Set(
+    cliques.map((c) => c.edition_number).filter((n): n is number => n != null)
+  ).size;
+  const edicoesSemDetalhe = Math.max(0, (lead?.editions_clicked ?? 0) - edicoesDetalhadas);
+
   if (!lead) {
     return (
       <div className="paper p-10 text-center">
@@ -187,6 +195,17 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
               ))}
             </tbody>
           </table>
+        )}
+        {cliques.length > 0 && edicoesSemDetalhe > 0 && (
+          <div
+            className="px-6 py-3.5 text-xs text-ink-mute leading-snug"
+            style={{ borderTop: "1px solid var(--rule)" }}
+          >
+            Falta o detalhamento de {edicoesSemDetalhe}{" "}
+            {edicoesSemDetalhe === 1 ? "edição" : "edições"} em que este lead também clicou — o
+            agregado registra o clique, mas só a MCP do Beehiiv diz em qual link. A lista acima
+            cobre {edicoesDetalhadas} de {lead.editions_clicked}.
+          </div>
         )}
       </div>
     </div>
