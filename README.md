@@ -112,6 +112,74 @@ Demais views: `v_edition_performance` · `v_lead_engagement` · `v_link_performa
 `v_event_type_stats` · `v_event_category_stats` · `v_rd_sync_stats` ·
 `v_post_stats` · `v_subscriber_daily` · `v_outbound_stats` · `v_outbound_errors`.
 
+#### Categoria de link
+
+`beehiiv_link_categorias` classifica URL por **tipo de destino** (imprensa,
+rede-social, proprio, newsletter, material). É tabela, não `CASE` no SQL — dá
+para editar por SQL sem migration, mesmo padrão de `beehiiv_internal_emails`.
+O match é por host, com `prioridade` menor vencendo: por isso `about.fb.com`
+entra como imprensa e não como rede social.
+
+Views: `v_link_categoria_base` (uma linha por link) · `v_link_performance_categoria`
+(ranking) · `v_link_categoria_edicao` · `v_link_hosts_sem_categoria`.
+
+> ⚠️ **`beehiiv_link_stats.base_url` está NULL nas 233 linhas** — a coluna existe
+> mas o sync nunca a populou. As views extraem o host da própria `url`. Não
+> escreva código novo assumindo `base_url` preenchida.
+>
+> A cada edição nova, conferir `v_link_hosts_sem_categoria`. Host que nenhuma
+> regra pega cai em "nao classificado", e sem olhar essa view ele cresce em
+> silêncio.
+
+#### Bloqueio e entregabilidade
+
+`v_blocked_subscribers` une o `status` de `beehiiv_subscriber_stats`
+(`inactive`/`invalid`) com os eventos `subscription.deleted`. É `full join` de
+propósito: e-mail deletado some da lista de subscriptions do Beehiiv, então
+existe evento sem linha de stats — e esse é justamente o caso interessante
+(`status = fora_da_lista`).
+
+`v_domain_deliverability` mostra entrega por domínio, só para domínios com 2+
+assinantes; com um só não dá para separar padrão de acaso.
+`v_internal_emails_audit` confronta a blocklist com quem realmente aparece na
+base — `cadastrado = false` num domínio interno é candidato a entrar em
+`beehiiv_internal_emails`.
+
+`rd_contact_status` guarda o status no RD dos bloqueados, populado pelo job
+semanal. Serve também de cache de `rd_uuid` para o botão "ver no RD".
+
+#### Carteira de clientes
+
+`clientes_customerx` é **espelho** — a origem é `bypass_customerx_clients` no
+projeto Supabase `xkdpbhzkhzxivwtcfulm`, e não há join cross-projeto no
+Postgres. O n8n copia diariamente a partir da view `v_clientes_newsletter_feed`,
+que mora no projeto de origem.
+
+O cruzamento com a base é **por domínio de e-mail**, com `dominios_genericos` de
+fora.
+
+> ⚠️ **37 clientes têm `spark.com.br` como domínio** — o e-mail cadastrado no
+> CustomerX é o do gerente de conta da Spark, não o do cliente. Sem excluir esse
+> domínio, os próprios funcionários entram em 37 clientes diferentes e todos
+> exibem números idênticos. Provedor público e domínio da Spark casam só por
+> e-mail exato.
+
+Views: `v_client_engagement` (uma linha por cliente) e
+`v_client_engagement_totais` (KPIs). Os totais existem separados porque dois
+clientes podem dividir o mesmo domínio — somar as linhas contaria o mesmo
+assinante duas vezes.
+
+#### Pontuação de volta para o RD
+
+`v_rd_scoring_feed` é a fila: só humano (`v_bot_accounts` fora), sem
+descadastrado, e **só quando a faixa muda** em relação ao último envio
+bem-sucedido em `beehiiv_rd_scoring_log`. Sem essa comparação o lead ganharia
+pontos de novo a cada ciclo de 3 dias e o score inflaria sozinho.
+
+> ⚠️ Tabela nova precisa de policy `<tabela>_anon_read` para `anon` e
+> `authenticated`, como todas as `beehiiv_*`. RLS ligado sem policy faz o dash
+> ler vazio **sem erro nenhum**.
+
 **Toda agregação acontece no Postgres.** O PostgREST corta respostas em 1000
 linhas e a base tem 4015 leads — contar em JS sobre a resposta crua trunca o
 resultado silenciosamente. Views novas devem sair já com `GROUP BY` e `ORDER BY`
@@ -125,8 +193,26 @@ de dentro, lidas com `.limit(N)`.
 - **Aquisição** (`/aquisicao`) — funil RD → opt-in → engajamento, crescimento 30d, UTM source/campaign
 - **Edições** (`/edicoes`) — entregas, abertura, CTR e unsubs por disparo; detalhe em `/edicoes/[postId]`
 - **Engajamento** (`/engajamento`) — rankings de edição, origem, leitor, empresa e horário
-- **Leads** (`/leads`) — busca por e-mail, linha do tempo individual, diretório
-- **Operação** (`/operacao`) — distribuição de eventos, sync com RD, motivos de erro, atividade recente
+- **Leads** (`/leads`) — busca por e-mail, linha do tempo individual, diretório, links clicados e atalho para o perfil no RD
+- **Clientes** (`/clientes`) — carteira CustomerX cruzada com a base: quem lê, quem recebe e não abre, quem está fora da news
+- **Operação** (`/operacao`) — distribuição de eventos, sync com RD, motivos de erro, atividade recente, **bloqueio de e-mails** (saídas, entregabilidade por domínio, coerência com o RD, blocklist interna)
+
+### Botão "ver no RD"
+
+`/api/rd/contato?email=...` resolve o `uuid` do contato e redireciona para o
+perfil. O uuid **não está na base** — `beehiiv_sync_outbound` tem 25 dos 4.034
+assinantes — então a rota consulta `rd_contact_status` primeiro e a API do RD
+depois. Falhou qualquer etapa, cai na busca por e-mail no RD: botão que não abre
+nada é pior que botão que abre a lista.
+
+Env: `RD_ACCESS_TOKEN`, ou o trio `RD_CLIENT_ID` + `RD_CLIENT_SECRET` +
+`RD_REFRESH_TOKEN` (o access token do RD expira em 24h, então em produção é o
+refresh que vale). `RD_APP_CONTACT_URL` ajusta a base do link — o caminho do
+perfil já mudou entre versões do RD (`/leads/{uuid}` e `/contatos/{uuid}`), e
+essa variável evita deploy para corrigir.
+
+A rota só resolve e-mail que está na base da newsletter. Sem essa checagem ela
+vira um oráculo público de "este e-mail existe no RD?" para quem tiver a URL.
 
 ### O filtro de scanner
 
@@ -150,7 +236,17 @@ Detalhe do critério e da validação em [`docs/sync-engajamento.md`](docs/sync-
 | Eventos de inscrição | tempo real | webhook Beehiiv → n8n → `beehiiv_events` |
 | Snapshots de edição | diário 06:00 BRT | n8n `Beehiiv Stats Daily Sync` |
 | Engajamento por assinante | a cada 3 dias | rotina agendada (ver `docs/sync-engajamento.md`) |
+| Carteira CustomerX | diário 05:00 BRT | n8n `Carteira CustomerX -> Dash Maxx News` (`kudw00d3RZQxCWn2`) |
+| Status no RD dos bloqueados | semanal, seg 08:00 BRT | n8n `Bloqueados Beehiiv -> status no RD` (`nADLUxukZXw3ydZ5`) |
+| Pontuação Beehiiv → RD | a cada 3 dias 07:30 BRT | n8n `Maxx News -> RD: pontuacao` (`1tK6UTI7fudmhMHs`) — **inativo** |
 | Cache das páginas | a cada 3 dias | `revalidate = 259200` + `/api/revalidate` |
+
+> ⚠️ **A pontuação para o RD está desligada de propósito.** Antes de ativar:
+> criar no RD os três grupos de conversão do Lead Scoring de Interesse
+> (`maxxnews-engajamento-alto`, `maxxnews-engajamento-medio`,
+> `maxxnews-leitor-recorrente`) e definir os pontos de cada um — sem isso a
+> conversão chega mas não pontua. A primeira execução é backfill de ~1.226
+> conversões e dispara qualquer automação amarrada nesses grupos.
 
 O endpoint de revalidação exige `Authorization: Bearer $CRON_SECRET` e só
 revalida se o último sync tiver 3+ dias — `?force=1` pula a checagem.

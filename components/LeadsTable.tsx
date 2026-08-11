@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { LeadEngagement } from "@/lib/analytics";
+import { RDLink } from "@/components/RDLink";
 import { fmtPct, relativeTime, truncate } from "@/lib/format";
 
 export function LeadsTable({ leads }: { leads: LeadEngagement[] }) {
@@ -28,9 +29,12 @@ export function LeadsTable({ leads }: { leads: LeadEngagement[] }) {
             {leads.map((l) => (
               <tr key={l.email}>
                 <td className="text-sm">
-                  <Link href={`/leads?email=${encodeURIComponent(l.email)}`} className="hover:underline">
-                    {truncate(l.email, 32)}
-                  </Link>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Link href={`/leads?email=${encodeURIComponent(l.email)}`} className="hover:underline">
+                      {truncate(l.email, 32)}
+                    </Link>
+                    <RDLink email={l.email} />
+                  </span>
                 </td>
                 <td className="text-xs text-ink-mute">
                   {l.utm_source || "—"}

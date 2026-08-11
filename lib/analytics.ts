@@ -83,6 +83,18 @@ export type LeadJourney = {
     clickedAt: string | null;
   }>;
   timeline: Array<{ at: string; kind: string; label: string; detail?: string }>;
+  /**
+   * Em quais links este lead clicou. Depende de `beehiiv_link_clicks`, que só a
+   * MCP do Beehiiv alimenta — edição sem backfill vem vazia mesmo tendo clique
+   * contabilizado no agregado.
+   */
+  cliques: Array<{
+    url: string;
+    categoria: string;
+    edition_number: number | null;
+    clicks: number;
+    clickedAt: string | null;
+  }>;
 };
 
 function coerceEdition(r: Record<string, unknown>): EditionPerf {
@@ -271,6 +283,45 @@ export async function getEdition(postId: string): Promise<{
   }
 }
 
+export type CategoriaDeLink = {
+  categoria: string;
+  links: number;
+  edicoes: number;
+  cliques: number;
+  cliquesUnicos: number;
+  verificados: number;
+  pctVerificado: number | null;
+  cliquesPorLink: number | null;
+};
+
+/**
+ * Desempenho por tipo de destino, não por URL crua. A regra de classificação
+ * mora em `beehiiv_link_categorias` (tabela, editável por SQL) e a agregação
+ * acontece no Postgres — em JS, host novo entraria como categoria fantasma.
+ */
+export async function getLinkCategorias(): Promise<CategoriaDeLink[]> {
+  try {
+    const sb = createSupabaseServer();
+    const { data, error } = await sb.from("v_link_performance_categoria").select("*");
+    if (error || !data) return [];
+    return data.map((r) => {
+      const rr = r as Record<string, unknown>;
+      return {
+        categoria: String(rr.categoria),
+        links: num(rr.links),
+        edicoes: num(rr.edicoes),
+        cliques: num(rr.cliques),
+        cliquesUnicos: num(rr.cliques_unicos),
+        verificados: num(rr.verificados),
+        pctVerificado: rr.pct_verificado == null ? null : Number(rr.pct_verificado),
+        cliquesPorLink: rr.cliques_por_link == null ? null : Number(rr.cliques_por_link)
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 export async function getLeads(): Promise<LeadEngagement[]> {
   try {
     const sb = createSupabaseServer();
@@ -396,7 +447,7 @@ export async function getEngagement(): Promise<EngagementSnapshot> {
 export async function getLeadJourney(email: string): Promise<LeadJourney> {
   try {
     const sb = createSupabaseServer();
-    const [leadRes, subRes, interRes, edRes] = await Promise.all([
+    const [leadRes, subRes, interRes, edRes, cliqueRes, linkRes] = await Promise.all([
       sb.from("v_lead_engagement").select("*").eq("email", email).limit(1),
       sb
         .from("beehiiv_events")
@@ -410,7 +461,16 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
         .eq("email", email)
         .order("last_engaged_at", { ascending: true })
         .limit(500),
-      sb.from("beehiiv_editions").select("post_id,edition_number,title,sent_at").eq("status", "sent")
+      sb.from("beehiiv_editions").select("post_id,edition_number,title,sent_at").eq("status", "sent"),
+      sb
+        .from("beehiiv_link_clicks")
+        .select("post_id,url_hash,clicks,clicked_at")
+        .eq("email", email)
+        .order("clicked_at", { ascending: false })
+        .limit(200),
+      // A categoria já sai resolvida do Postgres — classificar host em JS aqui
+      // duplicaria a regra que vive em beehiiv_link_categorias.
+      sb.from("v_link_categoria_base").select("post_id,url_hash,url,categoria")
     ]);
 
     const lead = leadRes.data && leadRes.data[0] ? coerceLead(leadRes.data[0] as Record<string, unknown>) : null;
@@ -506,8 +566,37 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
     }
     timeline.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
-    return { lead, perEdition, timeline };
+    // Liga clique a link pela chave (post_id, url_hash) — a mesma que o mapa de
+    // cliques da edição usa.
+    const porHash = new Map<string, { url: string; categoria: string }>();
+    for (const r of linkRes.data ?? []) {
+      const rr = r as Record<string, unknown>;
+      if (!rr.url_hash) continue;
+      porHash.set(`${String(rr.post_id)}|${String(rr.url_hash)}`, {
+        url: String(rr.url),
+        categoria: String(rr.categoria ?? "nao classificado")
+      });
+    }
+
+    const edPorPost = new Map(editions.map((e) => [e.post_id, e]));
+    const cliques = ((cliqueRes.data ?? []) as Array<{
+      post_id: string;
+      url_hash: string;
+      clicks: number;
+      clicked_at: string | null;
+    }>).map((c) => {
+      const link = porHash.get(`${c.post_id}|${c.url_hash}`);
+      return {
+        url: link?.url ?? c.url_hash,
+        categoria: link?.categoria ?? "nao classificado",
+        edition_number: edPorPost.get(c.post_id)?.edition_number ?? null,
+        clicks: num(c.clicks),
+        clickedAt: c.clicked_at
+      };
+    });
+
+    return { lead, perEdition, timeline, cliques };
   } catch {
-    return { lead: null, perEdition: [], timeline: [] };
+    return { lead: null, perEdition: [], timeline: [], cliques: [] };
   }
 }

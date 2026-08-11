@@ -1,7 +1,13 @@
 import Link from "next/link";
 import type { LeadJourney } from "@/lib/analytics";
 import { KPI } from "@/components/KPI";
-import { fmtPct, fmtDate, fmtDateTime } from "@/lib/format";
+import { RDLink } from "@/components/RDLink";
+import { fmtPct, fmtDate, fmtDateTime, truncate } from "@/lib/format";
+
+/** Tira protocolo e query pra caber na coluna sem virar sopa de UTM. */
+function limparUrl(url: string): string {
+  return url.replace(/^https?:\/\//, "").split("?")[0];
+}
 
 const KIND_COLOR: Record<string, string> = {
   subscription: "var(--navy)",
@@ -14,7 +20,7 @@ const KIND_COLOR: Record<string, string> = {
 };
 
 export function LeadJourneyView({ email, journey }: { email: string; journey: LeadJourney }) {
-  const { lead, perEdition, timeline } = journey;
+  const { lead, perEdition, timeline, cliques } = journey;
 
   if (!lead) {
     return (
@@ -49,6 +55,7 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
           ) : (
             <span className="text-xs font-mono px-3 py-1 rounded-full bg-amber-soft text-amber">pendente</span>
           )}
+          <RDLink email={lead.email} variant="button" />
           <Link href="/leads" className="text-sm font-mono uppercase tracking-wider text-ink-mute hover:text-ink">
             ← Diretório
           </Link>
@@ -130,6 +137,57 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
             </ol>
           )}
         </div>
+      </div>
+
+      {/* Em que ele clicou. Só aparece quando a edição tem detalhamento
+          sincronizado — o agregado sabe que houve clique, mas não em quê. */}
+      <div className="paper overflow-hidden">
+        <div className="flex items-baseline justify-between p-6 pb-4">
+          <h3 className="font-display text-xl">Links que clicou</h3>
+          <span className="font-mono-tag">
+            {cliques.length > 0
+              ? `${cliques.length} ${cliques.length === 1 ? "link" : "links"}`
+              : "sem detalhamento"}
+          </span>
+        </div>
+        {cliques.length === 0 ? (
+          <p className="text-ink-faint text-sm px-6 pb-8 leading-snug max-w-2xl">
+            {lead.editions_clicked > 0
+              ? `Este lead tem clique em ${lead.editions_clicked} ${
+                  lead.editions_clicked === 1 ? "edição" : "edições"
+                }, mas o detalhamento por link ainda não foi sincronizado para elas. O agregado sabe que houve clique; só a MCP do Beehiiv diz em qual link.`
+              : "Nenhum clique registrado."}
+          </p>
+        ) : (
+          <table className="editorial">
+            <thead>
+              <tr>
+                <th>Link</th>
+                <th>Categoria</th>
+                <th>Edição</th>
+                <th className="num">Cliques</th>
+                <th>Quando</th>
+              </tr>
+            </thead>
+            <tbody>
+              {cliques.map((c, i) => (
+                <tr key={`${c.url}-${i}`}>
+                  <td className="text-sm" title={c.url}>
+                    {truncate(limparUrl(c.url), 52)}
+                  </td>
+                  <td className="text-xs text-ink-mute">{c.categoria}</td>
+                  <td className="font-mono text-xs text-ink-mute">
+                    {c.edition_number != null ? `#${c.edition_number}` : "—"}
+                  </td>
+                  <td className="num">{c.clicks}</td>
+                  <td className="text-xs text-ink-mute whitespace-nowrap">
+                    {fmtDateTime(c.clickedAt)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
