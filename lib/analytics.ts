@@ -89,12 +89,51 @@ export type LeadJourney = {
    * contabilizado no agregado.
    */
   cliques: Array<{
-    url: string;
-    categoria: string;
+    /** null quando o url_hash não tem de-para em `beehiiv_link_stats`. */
+    url: string | null;
+    categoria: string | null;
     edition_number: number | null;
     clicks: number;
     clickedAt: string | null;
   }>;
+  /** Conta da carteira CustomerX a que este lead pertence, se houver. */
+  cliente: {
+    company_name: string;
+    contract_status: string | null;
+    plano: string | null;
+    carteira: string | null;
+    mrr: number;
+    /** "email" = e-mail exato do cadastro; "dominio" = mesmo domínio da conta. */
+    casou_por: string;
+  } | null;
+  /**
+   * Presente quando o lead cai em `v_bot_accounts`. Precisa aparecer em
+   * destaque: sem isso, 42 cliques de um filtro corporativo passam por
+   * interesse altíssimo.
+   */
+  scanner: {
+    motivo: string;
+    cliques: number;
+    aberturas: number;
+    razao: number;
+    latencia_mediana_s: number | null;
+  } | null;
+  /** Quem mais da mesma empresa assina, e o total da conta. */
+  empresa: {
+    dominio: string;
+    contatos: number;
+    humanos: number;
+    cliquesHumanos: number;
+    colegas: Array<{
+      email: string;
+      editions_opened: number;
+      total_clicks: number;
+      is_bot: boolean;
+      last_engaged_at: string | null;
+    }>;
+  } | null;
+  /** Cliques por categoria de destino — que tipo de conteúdo puxa este lead. */
+  categorias: Array<{ categoria: string; cliques: number; links: number }>;
 };
 
 function coerceEdition(r: Record<string, unknown>): EditionPerf {
@@ -473,6 +512,23 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
       sb.from("v_link_categoria_base").select("post_id,url_hash,url,categoria")
     ]);
 
+    // Contexto do deep dive. Roda em paralelo e cada peça falha sozinha: um
+    // bloco sem dado some da tela, não derruba a jornada inteira.
+    const dominio = email.toLowerCase().split("@")[1] ?? "";
+    const [clienteRes, botRes, colegasRes, catRes] = await Promise.all([
+      sb.from("v_lead_cliente").select("*").eq("email", email.toLowerCase()).limit(1),
+      sb.from("v_bot_accounts").select("*").eq("email", email).limit(1),
+      dominio
+        ? sb
+            .from("v_lead_dominio")
+            .select("email,editions_opened,total_clicks,is_bot,last_engaged_at")
+            .eq("dominio", dominio)
+            .order("total_clicks", { ascending: false })
+            .limit(50)
+        : Promise.resolve({ data: [] as unknown[] }),
+      sb.from("v_lead_categoria").select("categoria,cliques,links").eq("email", email)
+    ]);
+
     const lead = leadRes.data && leadRes.data[0] ? coerceLead(leadRes.data[0] as Record<string, unknown>) : null;
 
     const editions = (edRes.data ?? []).map((r) => {
@@ -586,17 +642,89 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
       clicked_at: string | null;
     }>).map((c) => {
       const link = porHash.get(`${c.post_id}|${c.url_hash}`);
+      // Sem correspondência em beehiiv_link_stats o url_hash é só um número —
+      // mostrar ele cru dá a impressão de dado corrompido. Devolve null e deixa
+      // a tela explicar que falta o de-para, que só a MCP do Beehiiv preenche.
       return {
-        url: link?.url ?? c.url_hash,
-        categoria: link?.categoria ?? "nao classificado",
+        url: link?.url ?? null,
+        categoria: link?.categoria ?? null,
         edition_number: edPorPost.get(c.post_id)?.edition_number ?? null,
         clicks: num(c.clicks),
         clickedAt: c.clicked_at
       };
     });
 
-    return { lead, perEdition, timeline, cliques };
+    const c0 = (clienteRes.data ?? [])[0] as Record<string, unknown> | undefined;
+    const cliente = c0
+      ? {
+          company_name: String(c0.company_name ?? "—"),
+          contract_status: (c0.contract_status as string) ?? null,
+          plano: (c0.plano as string) ?? null,
+          carteira: (c0.carteira as string) ?? null,
+          mrr: num(c0.mrr),
+          casou_por: String(c0.casou_por ?? "dominio")
+        }
+      : null;
+
+    const b0 = (botRes.data ?? [])[0] as Record<string, unknown> | undefined;
+    const scanner = b0
+      ? {
+          motivo: String(b0.motivo ?? "scanner"),
+          cliques: num(b0.cliques),
+          aberturas: num(b0.aberturas),
+          razao: num(b0.razao_clique_abertura),
+          latencia_mediana_s: b0.latencia_mediana_s == null ? null : num(b0.latencia_mediana_s)
+        }
+      : null;
+
+    const colegasRaw = ((colegasRes.data ?? []) as Array<{
+      email: string;
+      editions_opened: number;
+      total_clicks: number;
+      is_bot: boolean;
+      last_engaged_at: string | null;
+    }>).map((r) => ({
+      email: r.email,
+      editions_opened: num(r.editions_opened),
+      total_clicks: num(r.total_clicks),
+      is_bot: Boolean(r.is_bot),
+      last_engaged_at: r.last_engaged_at
+    }));
+
+    // Só vira "empresa" com mais de um contato — um assinante sozinho no
+    // domínio não é uma conta acompanhando, é ele mesmo.
+    const empresa =
+      dominio && colegasRaw.length > 1
+        ? {
+            dominio,
+            contatos: colegasRaw.length,
+            humanos: colegasRaw.filter((c) => !c.is_bot).length,
+            cliquesHumanos: colegasRaw
+              .filter((c) => !c.is_bot)
+              .reduce((a, c) => a + c.total_clicks, 0),
+            colegas: colegasRaw.filter((c) => c.email !== email)
+          }
+        : null;
+
+    const categorias = ((catRes.data ?? []) as Array<{
+      categoria: string;
+      cliques: number;
+      links: number;
+    }>)
+      .map((r) => ({ categoria: r.categoria, cliques: num(r.cliques), links: num(r.links) }))
+      .sort((a, b) => b.cliques - a.cliques);
+
+    return { lead, perEdition, timeline, cliques, cliente, scanner, empresa, categorias };
   } catch {
-    return { lead: null, perEdition: [], timeline: [], cliques: [] };
+    return {
+      lead: null,
+      perEdition: [],
+      timeline: [],
+      cliques: [],
+      cliente: null,
+      scanner: null,
+      empresa: null,
+      categorias: []
+    };
   }
 }

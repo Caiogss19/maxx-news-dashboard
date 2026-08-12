@@ -22,6 +22,23 @@ e ela exige OAuth. Por isso o trabalho é de agente.
 > `url`, `base_url` e contagens, sem id de clique. O `url_hash` de
 > `beehiiv_link_clicks` vem exclusivamente da MCP.
 
+### O de-para de `url_hash` (passo 4 da rotina)
+
+`beehiiv_link_clicks` guarda `url_hash`; quem tem a URL legível é
+`beehiiv_link_stats`. Como o sync n8n popula essa tabela pela REST v2, que não
+devolve o campo, ele nascia **NULL** — e sem ele o painel sabe que houve clique
+mas não em qual link.
+
+O sintoma apareceu quando o backfill de cliques encheu `beehiiv_link_clicks`:
+**814 de 882 cliques (92%) ficaram órfãos**, e a tela passou a exibir o hash cru.
+Quebrava tanto o mapa de cliques da edição quanto o bloco "Links que clicou" do
+lead. O passo 4 preenche o de-para via `list_post_clicks`, casando pela URL.
+
+> 💡 **Sobram ~66 cliques órfãos e isso é esperado.** São exatamente 1 hash por
+> pessoa por edição: links **personalizados** (preferências, descadastro) têm URL
+> única por assinante e por isso não existem como linha agregada em
+> `beehiiv_link_stats`. Não persiga esse resto.
+
 ## Configuração
 
 | Campo | Valor |
@@ -153,7 +170,9 @@ classificou, o resultado da conferencia do passo 5, e o que falhou.
 ## Estado em 12/08/2026
 
 As 10 edições cobertas nas duas tabelas, todas acima de 90% de detalhamento.
-`beehiiv_link_clicks` saiu de **20 linhas em 1 edição** para **882 linhas em 10**.
+`beehiiv_link_clicks` saiu de **20 linhas em 1 edição** para **882 linhas em 10**,
+e `beehiiv_link_stats.url_hash` de **13 de 256** para **256 de 256** — restam 66
+cliques órfãos, todos de link personalizado (ver acima).
 
 | Edição | Linhas | Detalhado | Esperado |
 |---:|---:|---:|---:|
