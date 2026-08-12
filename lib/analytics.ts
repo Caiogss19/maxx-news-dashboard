@@ -41,6 +41,13 @@ export type LeadEngagement = {
   total_clicks: number;
   last_engaged_at: string | null;
   open_rate: number;
+  /**
+   * Conta em `v_bot_accounts` — varredura automática, endereço interno ou
+   * inflador de abertura. Só é preenchido por `getLeads()`; o diretório precisa
+   * marcar essas linhas, senão elas aparecem como os leads mais engajados da
+   * base sem nenhuma ressalva.
+   */
+  isBot?: boolean;
 };
 
 export type EngagementDaily = {
@@ -117,6 +124,10 @@ export type LeadJourney = {
     aberturas: number;
     razao: number;
     latencia_mediana_s: number | null;
+    /** Maior rajada: N destinos distintos abertos numa janela de segundos. */
+    rajada_links: number | null;
+    rajada_janela_s: number | null;
+    rajada_latencia_s: number | null;
   } | null;
   /** Quem mais da mesma empresa assina, e o total da conta. */
   empresa: {
@@ -367,15 +378,25 @@ export async function getLeads(): Promise<LeadEngagement[]> {
     // O PostgREST corta em 1000 linhas (a base tem 4015). Sem ordenar no servidor
     // a fatia é arbitrária e os leads engajados podem ficar de fora — então a
     // ordenação vai para o Postgres, não para o JS.
-    const { data, error } = await sb
-      .from("v_lead_engagement")
-      .select("*")
-      .order("last_engaged_at", { ascending: false, nullsFirst: false })
-      .order("editions_opened", { ascending: false })
-      .order("total_clicks", { ascending: false })
-      .limit(1000);
+    const [{ data, error }, botRes] = await Promise.all([
+      sb
+        .from("v_lead_engagement")
+        .select("*")
+        .order("last_engaged_at", { ascending: false, nullsFirst: false })
+        .order("editions_opened", { ascending: false })
+        .order("total_clicks", { ascending: false })
+        .limit(1000),
+      // Lista curta (dezenas), então cabe num Set em memória sem risco de corte.
+      sb.from("v_bot_accounts").select("email")
+    ]);
     if (error || !data) return [];
-    return data.map((r) => coerceLead(r as Record<string, unknown>));
+    const bots = new Set(
+      ((botRes.data ?? []) as Array<{ email: string }>).map((b) => b.email)
+    );
+    return data.map((r) => {
+      const lead = coerceLead(r as Record<string, unknown>);
+      return { ...lead, isBot: bots.has(lead.email) };
+    });
   } catch {
     return [];
   }
@@ -673,7 +694,10 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
           cliques: num(b0.cliques),
           aberturas: num(b0.aberturas),
           razao: num(b0.razao_clique_abertura),
-          latencia_mediana_s: b0.latencia_mediana_s == null ? null : num(b0.latencia_mediana_s)
+          latencia_mediana_s: b0.latencia_mediana_s == null ? null : num(b0.latencia_mediana_s),
+          rajada_links: b0.rajada_links == null ? null : num(b0.rajada_links),
+          rajada_janela_s: b0.rajada_janela_s == null ? null : num(b0.rajada_janela_s),
+          rajada_latencia_s: b0.rajada_latencia_s == null ? null : num(b0.rajada_latencia_s)
         }
       : null;
 

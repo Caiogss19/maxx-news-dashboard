@@ -117,7 +117,25 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
               </div>
               <div className="text-[11px] text-ink-faint">humano leva horas</div>
             </div>
+            {scanner.rajada_links != null && (
+              <div>
+                <div className="font-mono-tag">Maior rajada</div>
+                <div className="num-display text-xl mt-0.5">
+                  {scanner.rajada_links} links / {scanner.rajada_janela_s}s
+                </div>
+                <div className="text-[11px] text-ink-faint">
+                  {fmtLatencia(scanner.rajada_latencia_s)} após o envio
+                </div>
+              </div>
+            )}
           </div>
+          {scanner.rajada_links != null && (
+            <p className="text-[11px] text-ink-faint mt-4 leading-snug max-w-3xl">
+              A rajada é a prova mais direta: {scanner.rajada_links} destinos distintos abertos
+              em {scanner.rajada_janela_s} segundos. Leitor humano escolhe o que abrir e volta
+              ao longo de horas — varredura abre tudo de uma vez.
+            </p>
+          )}
         </div>
       )}
 

@@ -297,9 +297,24 @@ export default async function Page() {
             render: (b) => (
               <span className="text-ink-mute text-xs">{latencia(b.latenciaMedianaS)}</span>
             )
+          },
+          {
+            // A prova mais direta de varredura: quantos destinos distintos a
+            // conta abriu de uma vez. Nenhum humano abre 8 links em 15 segundos.
+            header: "Rajada",
+            render: (b) =>
+              b.rajadaLinks != null ? (
+                <span className="text-xs whitespace-nowrap">
+                  <span className="text-ink font-mono">{b.rajadaLinks}</span>
+                  <span className="text-ink-mute"> links em </span>
+                  <span className="text-ink font-mono">{b.rajadaJanelaS}s</span>
+                </span>
+              ) : (
+                <span className="text-ink-faint text-xs">—</span>
+              )
           }
         ]}
-        footnote="A pessoa por trás do endereço pode ser um leitor real — o filtro corporativo apenas torna os números dela inúteis para medir interesse. Para avaliar essas contas, use resposta direta ou presença em evento, não clique."
+        footnote="“Rajada” é o maior número de destinos distintos que a conta abriu numa mesma edição e em que janela — o sinal mais direto de varredura automática. A pessoa por trás do endereço pode ser um leitor real; o filtro corporativo apenas torna os números dela inúteis para medir interesse. Para avaliar essas contas, use resposta direta ou presença em evento, não clique."
       />
 
       {/* ── Tipo de destino ──────────────────────────────────────────────────

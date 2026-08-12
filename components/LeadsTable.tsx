@@ -27,12 +27,22 @@ export function LeadsTable({ leads }: { leads: LeadEngagement[] }) {
           </thead>
           <tbody>
             {leads.map((l) => (
-              <tr key={l.email}>
+              <tr key={l.email} style={l.isBot ? { opacity: 0.62 } : undefined}>
                 <td className="text-sm">
                   <span className="inline-flex items-center gap-1.5">
                     <Link href={`/leads?email=${encodeURIComponent(l.email)}`} className="hover:underline">
                       {truncate(l.email, 32)}
                     </Link>
+                    {/* Sem esta marca, um scanner com 468 cliques encabeça o
+                        diretório e passa por lead quentíssimo. */}
+                    {l.isBot && (
+                      <span
+                        className="text-[10px] font-mono px-1.5 py-0.5 rounded-full bg-amber-soft text-amber whitespace-nowrap"
+                        title="Varredura automática, endereço interno ou inflador de abertura — fora de todos os rankings"
+                      >
+                        automatizado
+                      </span>
+                    )}
                     <RDLink email={l.email} />
                   </span>
                 </td>
