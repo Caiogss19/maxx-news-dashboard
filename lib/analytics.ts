@@ -41,6 +41,13 @@ export type LeadEngagement = {
   total_clicks: number;
   last_engaged_at: string | null;
   open_rate: number;
+  /**
+   * Conta em `v_bot_accounts` — varredura automática, endereço interno ou
+   * inflador de abertura. Só é preenchido por `getLeads()`; o diretório precisa
+   * marcar essas linhas, senão elas aparecem como os leads mais engajados da
+   * base sem nenhuma ressalva.
+   */
+  isBot?: boolean;
 };
 
 export type EngagementDaily = {
@@ -83,6 +90,61 @@ export type LeadJourney = {
     clickedAt: string | null;
   }>;
   timeline: Array<{ at: string; kind: string; label: string; detail?: string }>;
+  /**
+   * Em quais links este lead clicou. Depende de `beehiiv_link_clicks`, que só a
+   * MCP do Beehiiv alimenta — edição sem backfill vem vazia mesmo tendo clique
+   * contabilizado no agregado.
+   */
+  cliques: Array<{
+    /** null quando o url_hash não tem de-para em `beehiiv_link_stats`. */
+    url: string | null;
+    categoria: string | null;
+    edition_number: number | null;
+    clicks: number;
+    clickedAt: string | null;
+  }>;
+  /** Conta da carteira CustomerX a que este lead pertence, se houver. */
+  cliente: {
+    company_name: string;
+    contract_status: string | null;
+    plano: string | null;
+    carteira: string | null;
+    mrr: number;
+    /** "email" = e-mail exato do cadastro; "dominio" = mesmo domínio da conta. */
+    casou_por: string;
+  } | null;
+  /**
+   * Presente quando o lead cai em `v_bot_accounts`. Precisa aparecer em
+   * destaque: sem isso, 42 cliques de um filtro corporativo passam por
+   * interesse altíssimo.
+   */
+  scanner: {
+    motivo: string;
+    cliques: number;
+    aberturas: number;
+    razao: number;
+    latencia_mediana_s: number | null;
+    /** Maior rajada: N destinos distintos abertos numa janela de segundos. */
+    rajada_links: number | null;
+    rajada_janela_s: number | null;
+    rajada_latencia_s: number | null;
+  } | null;
+  /** Quem mais da mesma empresa assina, e o total da conta. */
+  empresa: {
+    dominio: string;
+    contatos: number;
+    humanos: number;
+    cliquesHumanos: number;
+    colegas: Array<{
+      email: string;
+      editions_opened: number;
+      total_clicks: number;
+      is_bot: boolean;
+      last_engaged_at: string | null;
+    }>;
+  } | null;
+  /** Cliques por categoria de destino — que tipo de conteúdo puxa este lead. */
+  categorias: Array<{ categoria: string; cliques: number; links: number }>;
 };
 
 function coerceEdition(r: Record<string, unknown>): EditionPerf {
@@ -271,21 +333,70 @@ export async function getEdition(postId: string): Promise<{
   }
 }
 
+export type CategoriaDeLink = {
+  categoria: string;
+  links: number;
+  edicoes: number;
+  cliques: number;
+  cliquesUnicos: number;
+  verificados: number;
+  pctVerificado: number | null;
+  cliquesPorLink: number | null;
+};
+
+/**
+ * Desempenho por tipo de destino, não por URL crua. A regra de classificação
+ * mora em `beehiiv_link_categorias` (tabela, editável por SQL) e a agregação
+ * acontece no Postgres — em JS, host novo entraria como categoria fantasma.
+ */
+export async function getLinkCategorias(): Promise<CategoriaDeLink[]> {
+  try {
+    const sb = createSupabaseServer();
+    const { data, error } = await sb.from("v_link_performance_categoria").select("*");
+    if (error || !data) return [];
+    return data.map((r) => {
+      const rr = r as Record<string, unknown>;
+      return {
+        categoria: String(rr.categoria),
+        links: num(rr.links),
+        edicoes: num(rr.edicoes),
+        cliques: num(rr.cliques),
+        cliquesUnicos: num(rr.cliques_unicos),
+        verificados: num(rr.verificados),
+        pctVerificado: rr.pct_verificado == null ? null : Number(rr.pct_verificado),
+        cliquesPorLink: rr.cliques_por_link == null ? null : Number(rr.cliques_por_link)
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 export async function getLeads(): Promise<LeadEngagement[]> {
   try {
     const sb = createSupabaseServer();
     // O PostgREST corta em 1000 linhas (a base tem 4015). Sem ordenar no servidor
     // a fatia é arbitrária e os leads engajados podem ficar de fora — então a
     // ordenação vai para o Postgres, não para o JS.
-    const { data, error } = await sb
-      .from("v_lead_engagement")
-      .select("*")
-      .order("last_engaged_at", { ascending: false, nullsFirst: false })
-      .order("editions_opened", { ascending: false })
-      .order("total_clicks", { ascending: false })
-      .limit(1000);
+    const [{ data, error }, botRes] = await Promise.all([
+      sb
+        .from("v_lead_engagement")
+        .select("*")
+        .order("last_engaged_at", { ascending: false, nullsFirst: false })
+        .order("editions_opened", { ascending: false })
+        .order("total_clicks", { ascending: false })
+        .limit(1000),
+      // Lista curta (dezenas), então cabe num Set em memória sem risco de corte.
+      sb.from("v_bot_accounts").select("email")
+    ]);
     if (error || !data) return [];
-    return data.map((r) => coerceLead(r as Record<string, unknown>));
+    const bots = new Set(
+      ((botRes.data ?? []) as Array<{ email: string }>).map((b) => b.email)
+    );
+    return data.map((r) => {
+      const lead = coerceLead(r as Record<string, unknown>);
+      return { ...lead, isBot: bots.has(lead.email) };
+    });
   } catch {
     return [];
   }
@@ -396,7 +507,7 @@ export async function getEngagement(): Promise<EngagementSnapshot> {
 export async function getLeadJourney(email: string): Promise<LeadJourney> {
   try {
     const sb = createSupabaseServer();
-    const [leadRes, subRes, interRes, edRes] = await Promise.all([
+    const [leadRes, subRes, interRes, edRes, cliqueRes, linkRes] = await Promise.all([
       sb.from("v_lead_engagement").select("*").eq("email", email).limit(1),
       sb
         .from("beehiiv_events")
@@ -410,7 +521,33 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
         .eq("email", email)
         .order("last_engaged_at", { ascending: true })
         .limit(500),
-      sb.from("beehiiv_editions").select("post_id,edition_number,title,sent_at").eq("status", "sent")
+      sb.from("beehiiv_editions").select("post_id,edition_number,title,sent_at").eq("status", "sent"),
+      sb
+        .from("beehiiv_link_clicks")
+        .select("post_id,url_hash,clicks,clicked_at")
+        .eq("email", email)
+        .order("clicked_at", { ascending: false })
+        .limit(200),
+      // A categoria já sai resolvida do Postgres — classificar host em JS aqui
+      // duplicaria a regra que vive em beehiiv_link_categorias.
+      sb.from("v_link_categoria_base").select("post_id,url_hash,url,categoria")
+    ]);
+
+    // Contexto do deep dive. Roda em paralelo e cada peça falha sozinha: um
+    // bloco sem dado some da tela, não derruba a jornada inteira.
+    const dominio = email.toLowerCase().split("@")[1] ?? "";
+    const [clienteRes, botRes, colegasRes, catRes] = await Promise.all([
+      sb.from("v_lead_cliente").select("*").eq("email", email.toLowerCase()).limit(1),
+      sb.from("v_bot_accounts").select("*").eq("email", email).limit(1),
+      dominio
+        ? sb
+            .from("v_lead_dominio")
+            .select("email,editions_opened,total_clicks,is_bot,last_engaged_at")
+            .eq("dominio", dominio)
+            .order("total_clicks", { ascending: false })
+            .limit(50)
+        : Promise.resolve({ data: [] as unknown[] }),
+      sb.from("v_lead_categoria").select("categoria,cliques,links").eq("email", email)
     ]);
 
     const lead = leadRes.data && leadRes.data[0] ? coerceLead(leadRes.data[0] as Record<string, unknown>) : null;
@@ -506,8 +643,112 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
     }
     timeline.sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
 
-    return { lead, perEdition, timeline };
+    // Liga clique a link pela chave (post_id, url_hash) — a mesma que o mapa de
+    // cliques da edição usa.
+    const porHash = new Map<string, { url: string; categoria: string }>();
+    for (const r of linkRes.data ?? []) {
+      const rr = r as Record<string, unknown>;
+      if (!rr.url_hash) continue;
+      porHash.set(`${String(rr.post_id)}|${String(rr.url_hash)}`, {
+        url: String(rr.url),
+        categoria: String(rr.categoria ?? "nao classificado")
+      });
+    }
+
+    const edPorPost = new Map(editions.map((e) => [e.post_id, e]));
+    const cliques = ((cliqueRes.data ?? []) as Array<{
+      post_id: string;
+      url_hash: string;
+      clicks: number;
+      clicked_at: string | null;
+    }>).map((c) => {
+      const link = porHash.get(`${c.post_id}|${c.url_hash}`);
+      // Sem correspondência em beehiiv_link_stats o url_hash é só um número —
+      // mostrar ele cru dá a impressão de dado corrompido. Devolve null e deixa
+      // a tela explicar que falta o de-para, que só a MCP do Beehiiv preenche.
+      return {
+        url: link?.url ?? null,
+        categoria: link?.categoria ?? null,
+        edition_number: edPorPost.get(c.post_id)?.edition_number ?? null,
+        clicks: num(c.clicks),
+        clickedAt: c.clicked_at
+      };
+    });
+
+    const c0 = (clienteRes.data ?? [])[0] as Record<string, unknown> | undefined;
+    const cliente = c0
+      ? {
+          company_name: String(c0.company_name ?? "—"),
+          contract_status: (c0.contract_status as string) ?? null,
+          plano: (c0.plano as string) ?? null,
+          carteira: (c0.carteira as string) ?? null,
+          mrr: num(c0.mrr),
+          casou_por: String(c0.casou_por ?? "dominio")
+        }
+      : null;
+
+    const b0 = (botRes.data ?? [])[0] as Record<string, unknown> | undefined;
+    const scanner = b0
+      ? {
+          motivo: String(b0.motivo ?? "scanner"),
+          cliques: num(b0.cliques),
+          aberturas: num(b0.aberturas),
+          razao: num(b0.razao_clique_abertura),
+          latencia_mediana_s: b0.latencia_mediana_s == null ? null : num(b0.latencia_mediana_s),
+          rajada_links: b0.rajada_links == null ? null : num(b0.rajada_links),
+          rajada_janela_s: b0.rajada_janela_s == null ? null : num(b0.rajada_janela_s),
+          rajada_latencia_s: b0.rajada_latencia_s == null ? null : num(b0.rajada_latencia_s)
+        }
+      : null;
+
+    const colegasRaw = ((colegasRes.data ?? []) as Array<{
+      email: string;
+      editions_opened: number;
+      total_clicks: number;
+      is_bot: boolean;
+      last_engaged_at: string | null;
+    }>).map((r) => ({
+      email: r.email,
+      editions_opened: num(r.editions_opened),
+      total_clicks: num(r.total_clicks),
+      is_bot: Boolean(r.is_bot),
+      last_engaged_at: r.last_engaged_at
+    }));
+
+    // Só vira "empresa" com mais de um contato — um assinante sozinho no
+    // domínio não é uma conta acompanhando, é ele mesmo.
+    const empresa =
+      dominio && colegasRaw.length > 1
+        ? {
+            dominio,
+            contatos: colegasRaw.length,
+            humanos: colegasRaw.filter((c) => !c.is_bot).length,
+            cliquesHumanos: colegasRaw
+              .filter((c) => !c.is_bot)
+              .reduce((a, c) => a + c.total_clicks, 0),
+            colegas: colegasRaw.filter((c) => c.email !== email)
+          }
+        : null;
+
+    const categorias = ((catRes.data ?? []) as Array<{
+      categoria: string;
+      cliques: number;
+      links: number;
+    }>)
+      .map((r) => ({ categoria: r.categoria, cliques: num(r.cliques), links: num(r.links) }))
+      .sort((a, b) => b.cliques - a.cliques);
+
+    return { lead, perEdition, timeline, cliques, cliente, scanner, empresa, categorias };
   } catch {
-    return { lead: null, perEdition: [], timeline: [] };
+    return {
+      lead: null,
+      perEdition: [],
+      timeline: [],
+      cliques: [],
+      cliente: null,
+      scanner: null,
+      empresa: null,
+      categorias: []
+    };
   }
 }

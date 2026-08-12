@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getEngagement } from "@/lib/analytics";
+import { getEngagement, getLinkCategorias } from "@/lib/analytics";
 import { getRankings } from "@/lib/rankings";
 import { Section } from "@/components/Section";
 import { KPIRow } from "@/components/KPI";
@@ -19,7 +19,12 @@ function latencia(s: number): string {
 }
 
 export default async function Page() {
-  const [e, r] = await Promise.all([getEngagement(), getRankings()]);
+  const [e, r, cats] = await Promise.all([
+    getEngagement(),
+    getRankings(),
+    getLinkCategorias()
+  ]);
+  const cliquesTotais = cats.reduce((a, c) => a + c.cliques, 0);
 
   const totalEd = r.totals.edicoes || 8;
   const cliquesBot = r.totals.cliquesBrutos - r.totals.cliquesHumanos;
@@ -292,10 +297,104 @@ export default async function Page() {
             render: (b) => (
               <span className="text-ink-mute text-xs">{latencia(b.latenciaMedianaS)}</span>
             )
+          },
+          {
+            // A prova mais direta de varredura: quantos destinos distintos a
+            // conta abriu de uma vez. Nenhum humano abre 8 links em 15 segundos.
+            header: "Rajada",
+            render: (b) =>
+              b.rajadaLinks != null ? (
+                <span className="text-xs whitespace-nowrap">
+                  <span className="text-ink font-mono">{b.rajadaLinks}</span>
+                  <span className="text-ink-mute"> links em </span>
+                  <span className="text-ink font-mono">{b.rajadaJanelaS}s</span>
+                </span>
+              ) : (
+                <span className="text-ink-faint text-xs">—</span>
+              )
           }
         ]}
-        footnote="A pessoa por trás do endereço pode ser um leitor real — o filtro corporativo apenas torna os números dela inúteis para medir interesse. Para avaliar essas contas, use resposta direta ou presença em evento, não clique."
+        footnote="“Rajada” é o maior número de destinos distintos que a conta abriu numa mesma edição e em que janela — o sinal mais direto de varredura automática. A pessoa por trás do endereço pode ser um leitor real; o filtro corporativo apenas torna os números dela inúteis para medir interesse. Para avaliar essas contas, use resposta direta ou presença em evento, não clique."
       />
+
+      {/* ── Tipo de destino ──────────────────────────────────────────────────
+          Ranking por URL crua mistura link de notícia com ícone de rodapé.
+          Agrupar por destino mostra qual tipo de conteúdo puxa clique. */}
+      {cats.length > 0 && (
+        <div className="mt-14">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="accent-line" />
+            <span className="font-mono-tag">tipo de destino</span>
+          </div>
+          <h2
+            className="font-display mb-3"
+            style={{ fontSize: "clamp(22px, 2.6vw, 30px)", lineHeight: 1.1, fontWeight: 400 }}
+          >
+            Que <span className="font-display-em">tipo de link</span> puxa clique.
+          </h2>
+          <p className="text-ink-mute max-w-3xl leading-relaxed mb-6" style={{ fontSize: 15 }}>
+            Os {fmtNum(cliquesTotais)} cliques agrupados pelo destino, não pela URL. A
+            classificação mora em <code>beehiiv_link_categorias</code> — host novo que nenhuma
+            regra pegar aparece como “nao classificado”.
+          </p>
+
+          <div className="paper overflow-hidden">
+            <table className="editorial">
+              <thead>
+                <tr>
+                  <th>Categoria</th>
+                  <th className="num">Links</th>
+                  <th className="num">Cliques</th>
+                  <th>Fatia</th>
+                  <th className="num">Por link</th>
+                  <th className="num">Verificados</th>
+                  <th>% humano</th>
+                </tr>
+              </thead>
+              <tbody>
+                {cats.map((c) => (
+                  <tr key={c.categoria}>
+                    <td className="text-sm">{c.categoria}</td>
+                    <td className="num">{c.links}</td>
+                    <td className="num">{c.cliques}</td>
+                    <td>
+                      <div className="flex items-center gap-2">
+                        <div className="bar-track w-20">
+                          <div
+                            className="bar-fill"
+                            style={{
+                              width: `${cliquesTotais ? (c.cliques / cliquesTotais) * 100 : 0}%`,
+                              background: "var(--crimson)"
+                            }}
+                          />
+                        </div>
+                        <span className="font-mono text-xs w-12">
+                          {fmtPct(cliquesTotais ? (c.cliques / cliquesTotais) * 100 : 0)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="num">
+                      {c.cliquesPorLink != null
+                        ? c.cliquesPorLink.toFixed(1).replace(".", ",")
+                        : "—"}
+                    </td>
+                    <td className="num text-xs text-ink-mute">{c.verificados}</td>
+                    <td className="font-mono text-xs">{fmtPct(c.pctVerificado)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div
+              className="px-6 py-3.5 text-xs text-ink-mute"
+              style={{ borderTop: "1px solid var(--rule)" }}
+            >
+              “% humano” é a fatia de cliques verificados pelo próprio Beehiiv. Categoria com
+              muitos cliques e baixo percentual está sendo inflada por varredura automática — o
+              volume é do robô, não do leitor.
+            </div>
+          </div>
+        </div>
+      )}
     </Section>
   );
 }

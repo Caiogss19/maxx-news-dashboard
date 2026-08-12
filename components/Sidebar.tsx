@@ -11,6 +11,7 @@ const NAV: NavItem[] = [
   { href: "/edicoes", label: "Edições", sub: "Desempenho por envio" },
   { href: "/engajamento", label: "Engajamento", sub: "Quem lê de verdade" },
   { href: "/leads", label: "Leads", sub: "Jornada individual" },
+  { href: "/clientes", label: "Clientes", sub: "Carteira na news" },
   { href: "/operacao", label: "Operação", sub: "Saúde da integração" }
 ];
 

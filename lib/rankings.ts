@@ -11,6 +11,14 @@ export type BotAccount = {
   razao: number;
   latenciaMedianaS: number;
   motivo: string;
+  /**
+   * Evidência de rajada: maior número de links distintos abertos numa mesma
+   * edição, a janela em que isso aconteceu e quanto tempo depois do envio.
+   * Null em conta pega por outro sinal (interna ou inflador de abertura).
+   */
+  rajadaLinks: number | null;
+  rajadaJanelaS: number | null;
+  rajadaLatenciaS: number | null;
 };
 
 export type EditionRank = {
@@ -153,7 +161,10 @@ export async function getRankings(): Promise<Rankings> {
         aberturas: num(x.aberturas),
         razao: num(x.razao_clique_abertura),
         latenciaMedianaS: num(x.latencia_mediana_s),
-        motivo: str(x.motivo)
+        motivo: str(x.motivo),
+        rajadaLinks: x.rajada_links == null ? null : num(x.rajada_links),
+        rajadaJanelaS: x.rajada_janela_s == null ? null : num(x.rajada_janela_s),
+        rajadaLatenciaS: x.rajada_latencia_s == null ? null : num(x.rajada_latencia_s)
       };
     });
 
