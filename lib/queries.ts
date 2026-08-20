@@ -53,6 +53,7 @@ export type Snapshot = {
     churnRate: number;
     netGrowth: number;
   };
+  /** Composicao do IMPORT (base migrada), nao aquisicao viva. Ver lib/aquisicao.ts. */
   utm: {
     bySource: Array<{ source: string; count: number }>;
     byCampaign: Array<{ campaign: string; count: number }>;
@@ -106,7 +107,9 @@ export async function getSnapshot(): Promise<Snapshot> {
   try {
     const sb = createSupabaseServer();
 
-    // Tudo agregado server-side via views (sem cair no limit 1000 do PostgREST)
+    // Tudo agregado server-side via views (sem cair no limit 1000 do PostgREST).
+    // utm_* vem de v_import_* : sao os rotulos herdados da base migrada em 23/06,
+    // nao aquisicao viva. A campanha real das inscricoes esta em lib/aquisicao.ts.
     const [
       subStatsRes, utmSrcRes, utmCmpRes,
       typeStatsRes, catStatsRes, rdStatsRes, postStatsRes,
@@ -114,8 +117,8 @@ export async function getSnapshot(): Promise<Snapshot> {
       recentEventsRes, recentOutboundRes
     ] = await Promise.all([
       sb.from("v_subscriber_stats").select("*").limit(1),
-      sb.from("v_utm_source_stats").select("*").limit(10),
-      sb.from("v_utm_campaign_stats").select("*").limit(10),
+      sb.from("v_import_utm_source").select("*").limit(10),
+      sb.from("v_import_utm_campaign").select("*").limit(10),
       sb.from("v_event_type_stats").select("*").limit(20),
       sb.from("v_event_category_stats").select("*"),
       sb.from("v_rd_sync_stats").select("*").limit(1),

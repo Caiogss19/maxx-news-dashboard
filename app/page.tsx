@@ -121,10 +121,10 @@ export default async function Page() {
           hint={`${s.base.deleted} via subscription · ${eng.totals.unsubscribes} via edições`}
         />
         <KPI
-          label="Top origem"
+          label="Top origem do import"
           value={s.utm.bySource[0]?.source ?? "—"}
           accent="plum"
-          hint={s.utm.bySource[0] ? `${fmtNum(s.utm.bySource[0].count)} subscribers` : undefined}
+          hint={s.utm.bySource[0] ? `${fmtNum(s.utm.bySource[0].count)} da base migrada · não é aquisição atual` : undefined}
         />
       </div>
     </main>
