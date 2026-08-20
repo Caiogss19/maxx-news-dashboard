@@ -4,7 +4,6 @@ import { getAquisicao } from "@/lib/aquisicao";
 import { Section } from "@/components/Section";
 import { Funnel } from "@/components/Funnel";
 import { Timeseries } from "@/components/Timeseries";
-import { BarList } from "@/components/BarList";
 import { KPI } from "@/components/KPI";
 import { RankTable } from "@/components/RankTable";
 import { MaxxnewsLeads } from "@/components/MaxxnewsLeads";
@@ -221,27 +220,6 @@ export default async function Page() {
         />
       </Section>
 
-      <Section
-        num="05"
-        eyebrow="Composição do import"
-        title="O que a *base migrada* trouxe como rótulo."
-        subtitle="Retrato do que entrou na migração inicial, não performance atual. Estes utm_source vieram colados nos contatos da plataforma anterior — nenhum destes canais trouxe inscrito novo desde então."
-      >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <BarList
-            title="Por utm_source"
-            caption="histórico migrado"
-            items={aq.importado.bySource.map((g) => ({ label: g.source, value: g.count }))}
-            accent="amber"
-          />
-          <BarList
-            title="Por utm_campaign"
-            caption="histórico migrado"
-            items={aq.importado.byCampaign.map((g) => ({ label: g.campaign, value: g.count }))}
-            accent="amber"
-          />
-        </div>
-      </Section>
     </main>
   );
 }

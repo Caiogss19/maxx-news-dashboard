@@ -46,11 +46,12 @@ export type DevolveuRow = {
 export type Aquisicao = {
   /** false quando o projeto Base Leads não respondeu — a página degrada em vez de quebrar. */
   temCampanha: boolean;
-  importado: {
-    total: number;
-    bySource: Array<{ source: string; count: number }>;
-    byCampaign: Array<{ campaign: string; count: number }>;
-  };
+  /**
+   * Só o total. A composição do import (utm_source/campaign da base migrada) vive em
+   * `v_import_utm_*` e hoje alimenta apenas o KPI "Top origem do import" da home —
+   * a página de aquisição não mostra mais esse recorte.
+   */
+  importado: { total: number };
   vivo: { total: number };
   resumo: {
     registros: number;
@@ -79,7 +80,7 @@ const EMPTY_RESUMO = {
 
 const EMPTY: Aquisicao = {
   temCampanha: false,
-  importado: { total: 0, bySource: [], byCampaign: [] },
+  importado: { total: 0 },
   vivo: { total: 0 },
   resumo: EMPTY_RESUMO,
   campanhas: [],
@@ -95,28 +96,14 @@ const str = (v: unknown) => String(v ?? "");
 async function getBloco(): Promise<Pick<Aquisicao, "importado" | "vivo">> {
   try {
     const sb = createSupabaseServer();
-    const [resumoRes, srcRes, cmpRes] = await Promise.all([
-      sb.from("v_origem_bloco_resumo").select("*"),
-      sb.from("v_import_utm_source").select("*").limit(10),
-      sb.from("v_import_utm_campaign").select("*").limit(10)
-    ]);
+    const resumoRes = await sb.from("v_origem_bloco_resumo").select("*");
 
     const linhas = resumoRes.data ?? [];
     const acha = (b: string) =>
       num(linhas.find((r) => str((r as any).bloco) === b)?.["subs" as never]);
 
     return {
-      importado: {
-        total: acha("import"),
-        bySource: (srcRes.data ?? []).map((r) => ({
-          source: str((r as any).source),
-          count: num((r as any).count)
-        })),
-        byCampaign: (cmpRes.data ?? []).map((r) => ({
-          campaign: str((r as any).campaign),
-          count: num((r as any).count)
-        }))
-      },
+      importado: { total: acha("import") },
       vivo: { total: acha("pos_import") }
     };
   } catch (err) {
