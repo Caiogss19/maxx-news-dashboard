@@ -33,6 +33,19 @@ export type LeadRow = {
   fonte: string;
   meio: string;
   campanha: string;
+  /**
+   * O que a pessoa digitou em "Nome da empresa" no formulário da LP.
+   *
+   * `null` é resposta legítima e vai continuar sendo: a LP tem DOIS formulários
+   * e só o do bloco principal pede empresa — o widget de newsletter do rodapé
+   * global também aparece na página, manda o mesmo `page_url` e vira
+   * `LP - Maxxnews` sem o campo. Tudo anterior a 25/08/2026 também é null,
+   * porque até então o dado era descartado antes de chegar ao banco.
+   *
+   * NÃO confundir com o "empresa" da aba /engajamento e da ficha do lead: lá
+   * empresa é o DOMÍNIO do e-mail, uma dedução. Este é declarado.
+   */
+  empresa: string | null;
 };
 
 export type DevolveuRow = {
@@ -92,6 +105,16 @@ const EMPTY: Aquisicao = {
 const num = (v: unknown) => Number(v ?? 0);
 const str = (v: unknown) => String(v ?? "");
 
+/**
+ * Teto do de-para de empresa. A base tem ~170 inscrições da Maxx News, então
+ * 2000 é folga larga — está aqui porque o PostgREST corta em 1000 SEM ERRO e
+ * sem aviso, e um corte silencioso aqui viraria "sem empresa" na tela.
+ */
+const TETO_EMPRESAS = 2000;
+
+/** Casamento por e-mail entre a view e a tabela: mesma normalização dos dois lados. */
+const chaveEmail = (v: unknown) => str(v).trim().toLowerCase();
+
 /** Beehiiv: import vs aquisição viva, e a composição do que foi migrado. */
 async function getBloco(): Promise<Pick<Aquisicao, "importado" | "vivo">> {
   try {
@@ -132,17 +155,67 @@ async function getCampanha(): Promise<
   }
 
   try {
-    const [resumoRes, cmpRes, pagRes, leadsRes, devRes] = await Promise.all([
+    const [resumoRes, cmpRes, pagRes, leadsRes, devRes, empresaRes] = await Promise.all([
       sb.from("v_maxxnews_resumo").select("*").limit(1),
       sb.from("v_maxxnews_por_campanha").select("*"),
       sb.from("v_maxxnews_por_pagina").select("*"),
       sb.from("v_maxxnews_leads").select("*"),
-      sb.from("v_maxxnews_devolveu").select("*")
+      sb.from("v_maxxnews_devolveu").select("*"),
+      // A empresa declarada NÃO está em `v_maxxnews_leads` — a view foi escrita
+      // quando o formulário só pedia e-mail e devolve
+      // criado_em/email/form/pagina/fonte/meio/campanha. Enquanto ela não expuser
+      // a coluna, o de-para vem da tabela e o casamento é por e-mail aqui.
+      //
+      // O dia em que a view ganhar `empresa`, esta consulta vira redundante e o
+      // `??` abaixo passa a resolver pela view sozinho — dá pra apagar sem tocar
+      // no componente.
+      sb
+        .from("leads_framer")
+        .select("email,empresa")
+        .ilike("conversion_identifier", "%maxxnews%")
+        .not("empresa", "is", null)
+        .order("criado_em", { ascending: false })
+        .limit(TETO_EMPRESAS)
     ]);
 
     if (resumoRes.error) throw resumoRes.error;
 
     const r = (resumoRes.data?.[0] ?? {}) as Record<string, unknown>;
+
+    // Bater no teto significaria de-para incompleto MOSTRADO COMO "sem empresa",
+    // que é indistinguível de lead que não declarou. Barulho no log é melhor do
+    // que uma coluna vazia que parece dado.
+    const linhasEmpresa = (empresaRes.data ?? []) as Array<{ email: string; empresa: string }>;
+    if (linhasEmpresa.length >= TETO_EMPRESAS) {
+      console.warn(
+        `Aquisição: de-para de empresa bateu o teto de ${TETO_EMPRESAS} linhas — ` +
+          "há inscrição com empresa fora do mapa. Exponha `empresa` em v_maxxnews_leads."
+      );
+    }
+
+    const porEmail = new Map<string, string>();
+    for (const l of linhasEmpresa) {
+      const chave = chaveEmail(l.email);
+      const valor = str(l.empresa).trim();
+      // A view lista uma linha por CONVERSÃO; quem reinscreveu tem mais de uma.
+      // A consulta vem por `criado_em` desc, então o primeiro visto é o mais
+      // recente — e é ele que fica.
+      if (chave && valor && !porEmail.has(chave)) porEmail.set(chave, valor);
+    }
+
+    const leads: LeadRow[] = ((leadsRes.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+      criado_em: str(row.criado_em),
+      email: str(row.email),
+      form: str(row.form),
+      pagina: str(row.pagina),
+      fonte: str(row.fonte),
+      meio: str(row.meio),
+      campanha: str(row.campanha),
+      empresa:
+        (row.empresa == null ? null : str(row.empresa).trim() || null) ??
+        porEmail.get(chaveEmail(row.email)) ??
+        null
+    }));
 
     return {
       temCampanha: true,
@@ -157,7 +230,7 @@ async function getCampanha(): Promise<
       },
       campanhas: (cmpRes.data ?? []) as CampanhaRow[],
       paginas: (pagRes.data ?? []) as PaginaRow[],
-      leads: (leadsRes.data ?? []) as LeadRow[],
+      leads,
       devolveu: (devRes.data ?? []) as DevolveuRow[]
     };
   } catch (err) {

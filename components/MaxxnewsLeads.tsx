@@ -14,6 +14,7 @@ import { fmtDateTime } from "@/lib/format";
 export function MaxxnewsLeads({ leads }: { leads: LeadRow[] }) {
   const [q, setQ] = useState("");
   const [fonte, setFonte] = useState("");
+  const [soComEmpresa, setSoComEmpresa] = useState(false);
 
   // Chips saem dos dados, não de uma lista fixa — campanha nova aparece sozinha.
   const fontes = useMemo(() => {
@@ -29,12 +30,17 @@ export function MaxxnewsLeads({ leads }: { leads: LeadRow[] }) {
     const termo = q.trim().toLowerCase();
     return leads.filter((l) => {
       if (fonte && l.fonte !== fonte) return false;
+      if (soComEmpresa && !l.empresa) return false;
       if (!termo) return true;
-      return `${l.email} ${l.pagina} ${l.fonte} ${l.meio} ${l.campanha}`
+      return `${l.email} ${l.empresa ?? ""} ${l.pagina} ${l.fonte} ${l.meio} ${l.campanha}`
         .toLowerCase()
         .includes(termo);
     });
-  }, [leads, q, fonte]);
+  }, [leads, q, fonte, soComEmpresa]);
+
+  // Quantas declararam empresa. É contagem sobre a lista INTEIRA já carregada
+  // (não sobre `filtrados`), senão o número mudaria de significado a cada filtro.
+  const comEmpresa = useMemo(() => leads.filter((l) => l.empresa).length, [leads]);
 
   const curta = (url: string) => url.replace(/^https?:\/\/[^/]+/, "") || "/";
 
@@ -45,7 +51,7 @@ export function MaxxnewsLeads({ leads }: { leads: LeadRow[] }) {
           As {leads.length} inscrições
         </h3>
         <span className="font-mono-tag">
-          {filtrados.length} de {leads.length}
+          {comEmpresa} com empresa · {filtrados.length} de {leads.length}
         </span>
       </div>
 
@@ -53,7 +59,7 @@ export function MaxxnewsLeads({ leads }: { leads: LeadRow[] }) {
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
-          placeholder="filtrar por e-mail, campanha, página…"
+          placeholder="filtrar por e-mail, empresa, campanha, página…"
           aria-label="Filtrar inscrições"
           className="flex-1 bg-bg-paper border border-rule rounded-sm px-4 py-2 text-sm font-mono outline-none focus:border-rule-strong transition"
           style={{ minWidth: 220 }}
@@ -77,6 +83,17 @@ export function MaxxnewsLeads({ leads }: { leads: LeadRow[] }) {
             {f}
           </button>
         ))}
+        {comEmpresa > 0 && (
+          <button
+            type="button"
+            onClick={() => setSoComEmpresa((v) => !v)}
+            aria-pressed={soComEmpresa}
+            className={`pill${soComEmpresa ? " pill-on" : ""}`}
+            title="Só as inscrições que declararam empresa no formulário"
+          >
+            com empresa
+          </button>
+        )}
       </div>
 
       {filtrados.length === 0 ? (
@@ -88,6 +105,7 @@ export function MaxxnewsLeads({ leads }: { leads: LeadRow[] }) {
               <tr>
                 <th>Data</th>
                 <th>E-mail</th>
+                <th>Empresa</th>
                 <th>Form.</th>
                 <th>Página de captura</th>
                 <th>Fonte</th>
@@ -100,6 +118,14 @@ export function MaxxnewsLeads({ leads }: { leads: LeadRow[] }) {
                   <td className="num text-xs whitespace-nowrap">{fmtDateTime(l.criado_em)}</td>
                   <td className="font-mono text-xs" style={{ wordBreak: "break-all" }}>
                     {l.email}
+                  </td>
+                  {/*
+                    "—" em vez de célula vazia: quem não declarou empresa entrou
+                    pelo widget do rodapé (que não pergunta) ou é anterior a
+                    25/08/2026. Célula vazia leria como falha de carregamento.
+                  */}
+                  <td className="text-sm">
+                    {l.empresa ?? <span className="text-ink-faint">—</span>}
                   </td>
                   <td>
                     <span className="pill">{l.form}</span>

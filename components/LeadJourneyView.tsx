@@ -28,7 +28,8 @@ const KIND_COLOR: Record<string, string> = {
 };
 
 export function LeadJourneyView({ email, journey }: { email: string; journey: LeadJourney }) {
-  const { lead, perEdition, timeline, cliques, cliente, scanner, empresa, categorias } = journey;
+  const { lead, perEdition, timeline, cliques, cliente, scanner, empresaDeclarada, empresa, categorias } =
+    journey;
   const totalCategoria = categorias.reduce((a, c) => a + c.cliques, 0);
   const semDeParaUrl = cliques.filter((c) => !c.url).length;
 
@@ -59,6 +60,23 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
         <div>
           <div className="font-mono-tag mb-1">Jornada do lead</div>
           <div className="font-display text-2xl">{lead.email}</div>
+          {/*
+            A empresa que a pessoa DIGITOU no formulário. Fica junto do e-mail
+            porque é identidade, não análise — e porque é o único lugar da ficha
+            onde "empresa" não é dedução: o bloco lá embaixo agrupa por domínio e
+            o de cliente vem da carteira CustomerX. O rótulo diz de onde veio,
+            senão as três viram a mesma coisa aos olhos de quem lê.
+          */}
+          {empresaDeclarada && (
+            <div className="text-sm mt-1">
+              <span className="text-ink">{empresaDeclarada.nome}</span>
+              <span className="text-ink-faint">
+                {" "}
+                · informada no formulário ({empresaDeclarada.conversao}
+                {empresaDeclarada.em ? `, ${fmtDate(empresaDeclarada.em)}` : ""})
+              </span>
+            </div>
+          )}
           <div className="text-sm text-ink-mute mt-1">
             {lead.utm_source ? `Origem: ${lead.utm_source}` : "Origem desconhecida"}
             {lead.utm_campaign ? ` · ${lead.utm_campaign}` : ""}

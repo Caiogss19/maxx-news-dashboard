@@ -1,4 +1,5 @@
 import { createSupabaseServer } from "./supabase-server";
+import { createSupabaseLeads } from "./supabase-leads";
 
 const num = (v: unknown): number => (v == null ? 0 : Number(v));
 
@@ -129,6 +130,19 @@ export type LeadJourney = {
     rajada_janela_s: number | null;
     rajada_latencia_s: number | null;
   } | null;
+  /**
+   * A empresa que a PESSOA DIGITOU no formulário da LP da Maxx News, lida do
+   * projeto Base Leads (`leads_framer`).
+   *
+   * Não confundir com `empresa` logo abaixo, que é o DOMÍNIO do e-mail — uma
+   * dedução — nem com `cliente.company_name`, que é a conta da carteira
+   * CustomerX. Este é o único dos três que a pessoa afirmou.
+   *
+   * `null` na maioria dos casos, e por bons motivos: a LP só passou a pedir o
+   * campo em 25/08/2026, o widget de newsletter do rodapé não pergunta, e quem
+   * chegou por outro canal nunca passou por esse formulário.
+   */
+  empresaDeclarada: { nome: string; conversao: string; em: string } | null;
   /** Quem mais da mesma empresa assina, e o total da conta. */
   empresa: {
     dominio: string;
@@ -504,6 +518,47 @@ export async function getEngagement(): Promise<EngagementSnapshot> {
   }
 }
 
+/**
+ * A empresa declarada no formulário — o único dado desta página que mora no
+ * OUTRO projeto Supabase (Base Leads), onde vive `leads_framer`.
+ *
+ * Isolada numa função com try/catch próprio de propósito: `SUPABASE_LEADS_*` é
+ * opcional no ambiente (a página degrada sem ela, como já acontece na
+ * /aquisicao), e um projeto fora do ar aqui não pode derrubar a jornada inteira
+ * — que é do projeto do Beehiiv e não depende disto para nada.
+ */
+async function getEmpresaDeclarada(email: string): Promise<LeadJourney["empresaDeclarada"]> {
+  const sb = createSupabaseLeads();
+  if (!sb) return null;
+
+  try {
+    const { data, error } = await sb
+      .from("leads_framer")
+      .select("empresa,conversion_identifier,criado_em")
+      .eq("email", email.toLowerCase())
+      .not("empresa", "is", null)
+      // Quem converteu mais de uma vez tem mais de uma linha. Vale a última: se
+      // a pessoa corrigiu a empresa numa reinscrição, é a correção que interessa.
+      .order("criado_em", { ascending: false })
+      .limit(1);
+
+    if (error) throw error;
+
+    const r = (data ?? [])[0] as Record<string, unknown> | undefined;
+    const nome = String(r?.empresa ?? "").trim();
+    if (!nome) return null;
+
+    return {
+      nome,
+      conversao: String(r?.conversion_identifier ?? "—"),
+      em: String(r?.criado_em ?? "")
+    };
+  } catch (err) {
+    console.error("Jornada / empresa declarada (Base Leads):", err);
+    return null;
+  }
+}
+
 export async function getLeadJourney(email: string): Promise<LeadJourney> {
   try {
     const sb = createSupabaseServer();
@@ -536,7 +591,7 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
     // Contexto do deep dive. Roda em paralelo e cada peça falha sozinha: um
     // bloco sem dado some da tela, não derruba a jornada inteira.
     const dominio = email.toLowerCase().split("@")[1] ?? "";
-    const [clienteRes, botRes, colegasRes, catRes] = await Promise.all([
+    const [clienteRes, botRes, colegasRes, catRes, empresaDeclarada] = await Promise.all([
       sb.from("v_lead_cliente").select("*").eq("email", email.toLowerCase()).limit(1),
       sb.from("v_bot_accounts").select("*").eq("email", email).limit(1),
       dominio
@@ -547,7 +602,8 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
             .order("total_clicks", { ascending: false })
             .limit(50)
         : Promise.resolve({ data: [] as unknown[] }),
-      sb.from("v_lead_categoria").select("categoria,cliques,links").eq("email", email)
+      sb.from("v_lead_categoria").select("categoria,cliques,links").eq("email", email),
+      getEmpresaDeclarada(email)
     ]);
 
     const lead = leadRes.data && leadRes.data[0] ? coerceLead(leadRes.data[0] as Record<string, unknown>) : null;
@@ -738,7 +794,7 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
       .map((r) => ({ categoria: r.categoria, cliques: num(r.cliques), links: num(r.links) }))
       .sort((a, b) => b.cliques - a.cliques);
 
-    return { lead, perEdition, timeline, cliques, cliente, scanner, empresa, categorias };
+    return { lead, perEdition, timeline, cliques, cliente, scanner, empresaDeclarada, empresa, categorias };
   } catch {
     return {
       lead: null,
@@ -747,6 +803,7 @@ export async function getLeadJourney(email: string): Promise<LeadJourney> {
       cliques: [],
       cliente: null,
       scanner: null,
+      empresaDeclarada: null,
       empresa: null,
       categorias: []
     };
