@@ -42,16 +42,23 @@ export function MaxxnewsLeads({ leads }: { leads: LeadRow[] }) {
   // (não sobre `filtrados`), senão o número mudaria de significado a cada filtro.
   const comEmpresa = useMemo(() => leads.filter((l) => l.empresa).length, [leads]);
 
+  // Quem converteu mais de uma vez. Fica no cabeçalho porque o total de linhas
+  // agora conta PESSOA, e sem isso a diferença para `resumo.registros` (que
+  // conta conversão) pareceria erro de contagem.
+  const repetidos = useMemo(() => leads.filter((l) => l.conversoes > 1).length, [leads]);
+
   const curta = (url: string) => url.replace(/^https?:\/\/[^/]+/, "") || "/";
 
   return (
     <div className="paper overflow-hidden">
       <div className="panel-head">
         <h3 className="font-display" style={{ fontSize: 17, fontWeight: 500 }}>
-          As {leads.length} inscrições
+          Os {leads.length} inscritos
         </h3>
         <span className="font-mono-tag">
-          {comEmpresa} com empresa · {filtrados.length} de {leads.length}
+          {comEmpresa} com empresa
+          {repetidos > 0 && ` · ${repetidos} converteram mais de uma vez`} · {filtrados.length} de{" "}
+          {leads.length}
         </span>
       </div>
 
@@ -118,6 +125,19 @@ export function MaxxnewsLeads({ leads }: { leads: LeadRow[] }) {
                   <td className="num text-xs whitespace-nowrap">{fmtDateTime(l.criado_em)}</td>
                   <td className="font-mono text-xs" style={{ wordBreak: "break-all" }}>
                     {l.email}
+                    {/*
+                      A pessoa preencheu a LP mais de uma vez. A linha mostra a
+                      conversão mais recente; o selo evita que o agrupamento
+                      esconda que houve repetição.
+                    */}
+                    {l.conversoes > 1 && (
+                      <span
+                        className="pill ml-2"
+                        title={`${l.conversoes} conversões deste e-mail — a data mostrada é a mais recente`}
+                      >
+                        {l.conversoes}×
+                      </span>
+                    )}
                   </td>
                   {/*
                     "—" em vez de célula vazia: quem não declarou empresa entrou

@@ -34,6 +34,15 @@ export type LeadRow = {
   meio: string;
   campanha: string;
   /**
+   * Quantas vezes esta pessoa converteu. Quase sempre 1.
+   *
+   * `v_maxxnews_leads` devolve uma linha por CONVERSÃO, e a LP aceita dois
+   * submits seguidos: em 28/08/2026 havia 11 pessoas repetidas na tela, com
+   * intervalos de 13 segundos a 2 minutos. A linha aqui é a pessoa; este número
+   * diz quantas conversões ela gerou, para o dado não sumir no agrupamento.
+   */
+  conversoes: number;
+  /**
    * O que a pessoa digitou em "Nome da empresa" no formulário da LP.
    *
    * `null` é resposta legítima e vai continuar sendo: a LP tem DOIS formulários
@@ -203,19 +212,51 @@ async function getCampanha(): Promise<
       if (chave && valor && !porEmail.has(chave)) porEmail.set(chave, valor);
     }
 
-    const leads: LeadRow[] = ((leadsRes.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
-      criado_em: str(row.criado_em),
-      email: str(row.email),
-      form: str(row.form),
-      pagina: str(row.pagina),
-      fonte: str(row.fonte),
-      meio: str(row.meio),
-      campanha: str(row.campanha),
-      empresa:
-        (row.empresa == null ? null : str(row.empresa).trim() || null) ??
-        porEmail.get(chaveEmail(row.email)) ??
-        null
-    }));
+    const porConversao: LeadRow[] = ((leadsRes.data ?? []) as Array<Record<string, unknown>>).map(
+      (row) => ({
+        criado_em: str(row.criado_em),
+        email: str(row.email),
+        form: str(row.form),
+        pagina: str(row.pagina),
+        fonte: str(row.fonte),
+        meio: str(row.meio),
+        campanha: str(row.campanha),
+        conversoes: 1,
+        empresa:
+          (row.empresa == null ? null : str(row.empresa).trim() || null) ??
+          porEmail.get(chaveEmail(row.email)) ??
+          null
+      })
+    );
+
+    // Uma linha por PESSOA, não por conversão.
+    //
+    // A view lista conversões, e quem clica em enviar duas vezes na LP converte
+    // duas vezes — aparecia como inscrição duplicada na tela. O de-duplicador do
+    // fluxo RD -> Beehiiv não alcança isto: ele barra o segundo ENVIO ao Beehiiv
+    // e escreve em `beehiiv_sync_outbound`, que é outro projeto. Esta lista lê a
+    // Base Leads, onde as duas conversões continuam existindo — e devem mesmo,
+    // porque `resumo.registros` conta conversão e é assim que a campanha é
+    // medida. O agrupamento é só desta tabela.
+    //
+    // A view já vem `criado_em` desc, então a primeira linha vista é a conversão
+    // mais recente e é ela que fica.
+    const porLead = new Map<string, LeadRow>();
+    for (const linha of porConversao) {
+      // Sem e-mail não há como agrupar; `criado_em` mantém a linha única em vez
+      // de fundir registros distintos numa chave vazia.
+      const chave = chaveEmail(linha.email) || `#${linha.criado_em}`;
+      const jaVisto = porLead.get(chave);
+      if (!jaVisto) {
+        porLead.set(chave, linha);
+        continue;
+      }
+      jaVisto.conversoes += 1;
+      // Empresa declarada em UMA das conversões vale para a pessoa: a segunda
+      // submissão costuma vir pior preenchida que a primeira.
+      if (!jaVisto.empresa && linha.empresa) jaVisto.empresa = linha.empresa;
+    }
+    const leads = Array.from(porLead.values());
 
     return {
       temCampanha: true,
