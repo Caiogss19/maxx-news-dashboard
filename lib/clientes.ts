@@ -35,6 +35,23 @@ export type TotaisClientes = {
   baseQueClicou: number;
 };
 
+/**
+ * A carteira lida em PESSOAS, não em empresas. São duas contagens diferentes e
+ * ambas certas: 240 clientes ativos são 1.424 pessoas. Vem de
+ * v_client_pessoas_produto, que já dedupe quem é contato de mais de um cliente.
+ */
+export type PessoasProduto = {
+  produto: string;
+  clientes: number;
+  pessoas: number;
+  naNews: number;
+  foraDoBeehiiv: number;
+  descadastrados: number;
+  abriram: number;
+  clicaram: number;
+  coberturaPct: number | null;
+};
+
 export type SnapshotClientes = {
   totais: TotaisClientes;
   clientes: ClienteEngajamento[];
@@ -49,6 +66,8 @@ export type SnapshotClientes = {
     assinantes: number;
     abriram: number;
   }>;
+  /** Pessoas da carteira ativa, quebradas por produto (Sprout / Sprout + Signals). */
+  pessoasPorProduto: PessoasProduto[];
 };
 
 const TOTAIS_ZERO: TotaisClientes = {
@@ -68,7 +87,8 @@ const VAZIO: SnapshotClientes = {
   clientes: [],
   ativosSemAbertura: [],
   ativosForaDaNews: [],
-  porCarteira: []
+  porCarteira: [],
+  pessoasPorProduto: []
 };
 
 const ATIVO = "active_contract";
@@ -79,9 +99,10 @@ export async function getClientes(): Promise<SnapshotClientes> {
 
     // Os totais vêm de view própria porque dois clientes podem dividir o mesmo
     // domínio — somar as linhas da tabela contaria o mesmo assinante duas vezes.
-    const [linhasRes, totaisRes] = await Promise.all([
+    const [linhasRes, totaisRes, pessoasRes] = await Promise.all([
       sb.from("v_client_engagement").select("*").limit(1000),
-      sb.from("v_client_engagement_totais").select("*").limit(1)
+      sb.from("v_client_engagement_totais").select("*").limit(1),
+      sb.from("v_client_pessoas_produto").select("*").limit(50)
     ]);
 
     const clientes: ClienteEngajamento[] = (linhasRes.data ?? []).map((r) => {
@@ -148,7 +169,31 @@ export async function getClientes(): Promise<SnapshotClientes> {
     }
     const porCarteira = [...mapa.values()].sort((a, b) => b.clientes - a.clientes);
 
-    return { totais, clientes, ativosSemAbertura, ativosForaDaNews, porCarteira };
+    const pessoasPorProduto: PessoasProduto[] = (pessoasRes.data ?? [])
+      .map((r) => {
+        const rr = r as Record<string, unknown>;
+        return {
+          produto: String(rr.produto ?? "sem produto"),
+          clientes: num(rr.clientes),
+          pessoas: num(rr.pessoas),
+          naNews: num(rr.na_news),
+          foraDoBeehiiv: num(rr.fora_do_beehiiv),
+          descadastrados: num(rr.descadastrados),
+          abriram: num(rr.abriram),
+          clicaram: num(rr.clicaram),
+          coberturaPct: rr.cobertura_pct == null ? null : Number(rr.cobertura_pct)
+        };
+      })
+      .sort((a, b) => b.pessoas - a.pessoas);
+
+    return {
+      totais,
+      clientes,
+      ativosSemAbertura,
+      ativosForaDaNews,
+      porCarteira,
+      pessoasPorProduto
+    };
   } catch {
     return VAZIO;
   }

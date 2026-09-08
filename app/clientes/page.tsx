@@ -16,7 +16,7 @@ function pct(parte: number, total: number): number | null {
 }
 
 export default async function Page() {
-  const { totais, clientes, ativosSemAbertura, ativosForaDaNews, porCarteira } =
+  const { totais, clientes, ativosSemAbertura, ativosForaDaNews, porCarteira, pessoasPorProduto } =
     await getClientes();
 
   const aberturaCliente = pct(totais.assinantesQueAbriram, totais.assinantesDeCliente);
@@ -29,6 +29,10 @@ export default async function Page() {
     .sort((a, b) => b.assinantesHumanos - a.assinantesHumanos || b.mrr - a.mrr);
 
   const mrrCego = ativosSemAbertura.reduce((a, c) => a + c.mrr, 0);
+
+  // A carteira lida em gente: 240 clientes ativos são 1.424 pessoas.
+  const pessoasTotal = pessoasPorProduto.reduce((a, p) => a + p.pessoas, 0);
+  const pessoasNaNews = pessoasPorProduto.reduce((a, p) => a + p.naNews, 0);
 
   return (
     <main>
@@ -70,9 +74,59 @@ export default async function Page() {
         />
       </Section>
 
-      {ativosSemAbertura.length > 0 && (
+      {pessoasPorProduto.length > 0 && (
         <Section
           num="12"
+          eyebrow="A carteira em gente"
+          title="Quantas *pessoas* de cliente estão na news?"
+          subtitle="A contagem por empresa responde uma pergunta; esta responde outra. Cada linha é uma pessoa cadastrada no CustomerX, sem repetir quem é contato de mais de um cliente. Signals é add-on de Sprout — quem tem os dois aparece só na linha combinada."
+        >
+          <div className="paper overflow-hidden">
+            <div className="flex items-baseline justify-between p-6 pb-4">
+              <h3 className="font-display text-xl">Pessoas por produto</h3>
+              <span className="font-mono-tag">
+                {fmtNum(pessoasNaNews)} de {fmtNum(pessoasTotal)} na news ·{" "}
+                {fmtPct(pct(pessoasNaNews, pessoasTotal))}
+              </span>
+            </div>
+            <table className="editorial">
+              <thead>
+                <tr>
+                  <th>Produto</th>
+                  <th className="num">Clientes</th>
+                  <th className="num">Pessoas</th>
+                  <th className="num">Na news</th>
+                  <th className="num">Cobertura</th>
+                  <th className="num">Abrem</th>
+                  <th className="num">Fora</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pessoasPorProduto.map((p) => (
+                  <tr key={p.produto}>
+                    <td className="text-sm">{p.produto}</td>
+                    <td className="num">{p.clientes}</td>
+                    <td className="num">{fmtNum(p.pessoas)}</td>
+                    <td className="num">{fmtNum(p.naNews)}</td>
+                    <td className="num">{fmtPct(p.coberturaPct)}</td>
+                    <td className="num">{fmtNum(p.abriram)}</td>
+                    <td className="num text-ink-mute">{fmtNum(p.foraDoBeehiiv)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <p className="px-6 pb-6 pt-4 text-xs text-ink-mute leading-relaxed">
+              &quot;Fora&quot; é pessoa de cliente ativo que não existe no Beehiiv — quase
+              sempre endereço que o Beehiiv tentou validar e não existe mais. É dado velho no
+              CustomerX, não falta de carga.
+            </p>
+          </div>
+        </Section>
+      )}
+
+      {ativosSemAbertura.length > 0 && (
+        <Section
+          num="13"
           eyebrow="Ponto cego"
           title="Cliente ativo que *recebe e não abre*."
           subtitle="Três ou mais pessoas inscritas, nenhuma abertura registrada. Em conta grande isso raramente é desinteresse — é filtro corporativo comendo a entrega antes de alguém ver. Confira o domínio na aba Operação."
@@ -111,7 +165,7 @@ export default async function Page() {
       )}
 
       <Section
-        num="13"
+        num="14"
         eyebrow="Por carteira"
         title="Alcance por *nível de atendimento*."
         subtitle="Quantos clientes de cada carteira têm alguém na newsletter, e quanto dessa gente abre."
@@ -158,7 +212,7 @@ export default async function Page() {
       </Section>
 
       <Section
-        num="14"
+        num="15"
         eyebrow="Cliente a cliente"
         title="A carteira, *ordenada por presença*."
         subtitle="Quem tem mais gente inscrita. A coluna de scanner mostra quantos dos inscritos são varredura automática — em domínio corporativo isso muda a leitura do número ao lado."
@@ -224,7 +278,7 @@ export default async function Page() {
       </Section>
 
       <Section
-        num="15"
+        num="16"
         eyebrow="Oportunidade"
         title="Cliente ativo *fora* da newsletter."
         subtitle="Contrato ativo e ninguém do domínio inscrito. Ordenado por MRR — é onde convidar rende mais."
