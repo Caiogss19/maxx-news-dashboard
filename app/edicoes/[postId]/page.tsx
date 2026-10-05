@@ -6,6 +6,7 @@ import { BarList } from "@/components/BarList";
 import { EmailClickMap } from "@/components/EmailClickMap";
 import { montarMapaDeCliques } from "@/lib/clickmap";
 import { fmtNum, fmtPct, fmtDateTime, truncate } from "@/lib/format";
+import { ArrowLeft, Inbox, MailOpen, MousePointerClick, UserMinus } from "lucide-react";
 
 export const revalidate = 259200; // 3 dias — casado com o job de sync
 
@@ -23,7 +24,7 @@ export default async function Page({ params }: { params: Promise<{ postId: strin
       <main className="py-16">
         <div className="paper p-10 text-center">
           <p className="text-ink-mute">Edição não encontrada.</p>
-          <Link href="/edicoes" className="inline-block mt-4 text-sm font-mono uppercase tracking-wider hover:underline">
+          <Link href="/edicoes" className="spk-btn spk-btn--fantasma spk-btn--pequeno mt-4">
             ← Voltar às edições
           </Link>
         </div>
@@ -38,24 +39,24 @@ export default async function Page({ params }: { params: Promise<{ postId: strin
   ];
 
   return (
-    <main className="py-12">
+    <main>
       <div className="flex items-baseline justify-between mb-2">
         <div className="font-mono-tag">
           <span className="accent-line" />
           Edição {edition.edition_number} · {fmtDateTime(edition.sent_at)}
         </div>
-        <Link href="/edicoes" className="text-sm font-mono uppercase tracking-wider text-ink-mute hover:text-ink">
-          ← Edições
+        <Link href="/edicoes" className="spk-btn spk-btn--fantasma spk-btn--pequeno">
+          <ArrowLeft /> Edições
         </Link>
       </div>
-      <h1 className="font-display text-3xl md:text-4xl leading-tight mb-2 max-w-3xl">{edition.title}</h1>
+      <h1 className="nw-secao__t mb-2">{edition.title}</h1>
       {edition.subject && <p className="text-ink-mute mb-8">Assunto: {edition.subject}</p>}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <KPI label="Entregues" value={fmtNum(edition.delivered)} accent="navy" hint={`${edition.bounces} bounces`} />
-        <KPI label="Taxa de abertura" value={fmtPct(edition.open_rate)} accent="olive" hint={`${fmtNum(edition.unique_opens)} leitores`} />
-        <KPI label="CTR" value={fmtPct(edition.ctr)} accent="amber" hint={`CTOR ${fmtPct(edition.ctor)}`} />
-        <KPI label="Descadastros" value={fmtNum(edition.unsubscribes)} accent={edition.unsubscribes > 0 ? "danger" : "ink"} />
+        <KPI label="Entregues" icon={<Inbox />} value={fmtNum(edition.delivered)} accent="navy" hint={`${edition.bounces} bounces`} />
+        <KPI label="Taxa de abertura" icon={<MailOpen />} value={fmtPct(edition.open_rate)} accent="olive" hint={`${fmtNum(edition.unique_opens)} leitores`} />
+        <KPI label="CTR" icon={<MousePointerClick />} value={fmtPct(edition.ctr)} accent="amber" hint={`CTOR ${fmtPct(edition.ctor)}`} />
+        <KPI label="Descadastros" icon={<UserMinus />} value={fmtNum(edition.unsubscribes)} accent={edition.unsubscribes > 0 ? "danger" : "ink"} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -102,7 +103,7 @@ export default async function Page({ params }: { params: Promise<{ postId: strin
 
       <div className="paper overflow-hidden">
         <div className="flex items-baseline justify-between p-6 pb-4">
-          <h3 className="font-display text-xl">Leads engajados</h3>
+          <h3 className="nw-painel-t">Leads engajados</h3>
           <span className="font-mono-tag">top {engagedLeads.length}</span>
         </div>
         {engagedLeads.length === 0 ? (

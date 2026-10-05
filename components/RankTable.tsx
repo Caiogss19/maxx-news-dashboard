@@ -29,7 +29,7 @@ export function RankTable<T>({
   return (
     <div className="paper overflow-hidden">
       <div className="panel-head">
-        <h3 className="font-display" style={{ fontSize: 17, fontWeight: 500 }}>
+        <h3 className="nw-painel-t">
           {title}
         </h3>
         {caption && <span className="font-mono-tag">{caption}</span>}

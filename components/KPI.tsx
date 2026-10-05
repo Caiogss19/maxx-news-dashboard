@@ -6,6 +6,8 @@ type Props = {
   suffix?: string;
   hint?: string;
   accent?: Tone;
+  /** ícone lucide do rótulo, ex. `<Users />` — pinta na cor do acento */
+  icon?: React.ReactNode;
 };
 
 const TONE: Record<Tone, string> = {
@@ -18,48 +20,55 @@ const TONE: Record<Tone, string> = {
   ink: "var(--ink)"
 };
 
-export function KPI({ label, value, suffix, hint, accent = "ink" }: Props) {
+/** O acento do CARD (borda e brilho). `ink` não é cor: cai na moldura, como na Central. */
+function acento(t: Tone) {
+  return t === "ink" ? "var(--uv)" : TONE[t];
+}
+
+/**
+ * O KPI em `spk-card`: a borda-gradiente e o brilho interno saem da cor do
+ * acento, o número também. Card informativo — não levanta no hover.
+ */
+export function KPI({ label, value, suffix, hint, accent = "ink", icon }: Props) {
   return (
-    <div className="paper p-5 flex flex-col gap-3 fade-up">
-      <div className="font-mono-tag">{label}</div>
-      <div className="flex items-baseline gap-2">
-        <div className="num-display" style={{ fontSize: 38, color: TONE[accent] }}>
-          {value}
-        </div>
-        {suffix && <span className="text-ink-mute text-sm">{suffix}</span>}
+    <div className="spk-card nw-kpi spk-entrar" style={{ ["--ac" as string]: acento(accent) }}>
+      <div className="nw-kpi__topo">
+        {icon && <span className="nw-kpi__i">{icon}</span>}
+        <span className="nw-kpi__r" title={label}>{label}</span>
       </div>
-      {hint && <div className="text-xs text-ink-mute leading-snug">{hint}</div>}
+      <div className="nw-kpi__v" style={{ color: TONE[accent] }}>
+        {value}
+        {suffix && <small>{suffix}</small>}
+      </div>
+      {hint && <div className="nw-kpi__s">{hint}</div>}
     </div>
   );
 }
 
 /**
- * Faixa de KPIs separada por régua vertical, sem cartões — o padrão de topo da
- * Central de Leads. Usa a mesma escala de tom do KPI.
+ * Faixa de KPIs num card só, separada por régua — o padrão de topo da Central.
+ * Usa a mesma escala de tom do KPI.
  */
 export function KPIRow({
   items
 }: {
-  items: Array<{ label: string; value: string | number; foot?: string; accent?: Tone }>;
+  items: Array<{ label: string; value: string | number; foot?: string; accent?: Tone; icon?: React.ReactNode }>;
 }) {
   return (
-    <div className="paper grid grid-cols-2 md:grid-cols-4">
-      {items.map((it, i) => (
-        <div
-          key={i}
-          className="p-5"
-          style={{
-            borderRight: i % 4 === 3 ? "none" : "1px solid var(--rule)",
-            borderBottom: i < items.length - (items.length % 4 || 4) ? "1px solid var(--rule)" : "none"
-          }}
-        >
-          <div className="font-mono-tag mb-3">{it.label}</div>
-          <div className="num-display" style={{ fontSize: 40, color: TONE[it.accent ?? "ink"] }}>
-            {it.value}
+    <div className="paper nw-faixa">
+      {items.map((it, i) => {
+        const tom = it.accent ?? "ink";
+        return (
+          <div key={i} className="nw-faixa__i" style={{ ["--ac" as string]: acento(tom) }}>
+            <div className="nw-kpi__topo">
+              {it.icon && <span className="nw-kpi__i">{it.icon}</span>}
+              <span className="nw-kpi__r" title={it.label}>{it.label}</span>
+            </div>
+            <div className="nw-kpi__v" style={{ color: TONE[tom] }}>{it.value}</div>
+            {it.foot && <div className="nw-kpi__s">{it.foot}</div>}
           </div>
-          {it.foot && <div className="text-xs text-ink-mute mt-2.5 leading-snug">{it.foot}</div>}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

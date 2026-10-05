@@ -2,6 +2,7 @@ import { getClientes } from "@/lib/clientes";
 import { Section } from "@/components/Section";
 import { KPIRow } from "@/components/KPI";
 import { fmtNum, fmtPct, relativeTime, truncate } from "@/lib/format";
+import { Building2, MailOpen, MousePointerClick, Users } from "lucide-react";
 
 export const revalidate = 259200; // 3 dias — casado com o job de sync
 
@@ -46,12 +47,14 @@ export default async function Page() {
           items={[
             {
               label: "Clientes na news",
+              icon: <Building2 />,
               value: totais.clientesNaNewsletter,
               foot: `de ${totais.clientesCarteira} na carteira · ${totais.clientesAtivos} com contrato ativo`,
               accent: "crimson"
             },
             {
               label: "Assinantes de cliente",
+              icon: <Users />,
               value: fmtNum(totais.assinantesDeCliente),
               foot: `${fmtPct(pct(totais.assinantesDeCliente, totais.assinantesHumanosTotal))} da base humana (${fmtNum(
                 totais.assinantesHumanosTotal
@@ -60,12 +63,14 @@ export default async function Page() {
             },
             {
               label: "Abrem",
+              icon: <MailOpen />,
               value: fmtPct(aberturaCliente),
               foot: `base geral: ${fmtPct(aberturaBase)}`,
               accent: "olive"
             },
             {
               label: "Clicam",
+              icon: <MousePointerClick />,
               value: fmtPct(cliqueCliente),
               foot: `base geral: ${fmtPct(cliqueBase)}`,
               accent: "amber"
@@ -83,7 +88,7 @@ export default async function Page() {
         >
           <div className="paper overflow-hidden">
             <div className="flex items-baseline justify-between p-6 pb-4">
-              <h3 className="font-display text-xl">Pessoas por produto</h3>
+              <h3 className="nw-painel-t">Pessoas por produto</h3>
               <span className="font-mono-tag">
                 {fmtNum(pessoasNaNews)} de {fmtNum(pessoasTotal)} na news ·{" "}
                 {fmtPct(pct(pessoasNaNews, pessoasTotal))}
@@ -133,7 +138,7 @@ export default async function Page() {
         >
           <div className="paper overflow-hidden">
             <div className="flex items-baseline justify-between p-6 pb-4">
-              <h3 className="font-display text-xl">Recebem, ninguém abre</h3>
+              <h3 className="nw-painel-t">Recebem, ninguém abre</h3>
               <span className="font-mono-tag">
                 {ativosSemAbertura.length} clientes · {brl(mrrCego)} de MRR
               </span>
@@ -219,7 +224,7 @@ export default async function Page() {
       >
         <div className="paper overflow-hidden">
           <div className="flex items-baseline justify-between p-6 pb-4">
-            <h3 className="font-display text-xl">Clientes com inscritos</h3>
+            <h3 className="nw-painel-t">Clientes com inscritos</h3>
             <span className="font-mono-tag">{comAssinante.length} clientes</span>
           </div>
           <table className="editorial">
@@ -285,7 +290,7 @@ export default async function Page() {
       >
         <div className="paper overflow-hidden">
           <div className="flex items-baseline justify-between p-6 pb-4">
-            <h3 className="font-display text-xl">Sem ninguém inscrito</h3>
+            <h3 className="nw-painel-t">Sem ninguém inscrito</h3>
             <span className="font-mono-tag">
               {ativosForaDaNews.length} de {totais.clientesAtivos} clientes ativos
             </span>

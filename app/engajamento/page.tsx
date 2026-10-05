@@ -8,6 +8,7 @@ import { HourBars } from "@/components/HourBars";
 import { RankTable, Who } from "@/components/RankTable";
 import { EditionDots } from "@/components/EditionDots";
 import { fmtNum, fmtPct, fmtDate, relativeTime } from "@/lib/format";
+import { Inbox, MailOpen, MousePointerClick, UserMinus } from "lucide-react";
 
 export const revalidate = 259200; // 3 dias — casado com o job de sync
 
@@ -46,24 +47,28 @@ export default async function Page() {
           items={[
             {
               label: "Entregas",
+              icon: <Inbox />,
               value: fmtNum(e.totals.delivered),
               foot: `${e.totals.bounces} bounces`,
               accent: "navy"
             },
             {
               label: "Abertura média",
+              icon: <MailOpen />,
               value: fmtPct(e.totals.avgOpenRate),
               foot: `${fmtNum(e.totals.opens)} aberturas no total`,
               accent: "olive"
             },
             {
               label: "Cliques de pessoas",
+              icon: <MousePointerClick />,
               value: fmtNum(r.totals.cliquesHumanos),
               foot: `de ${fmtNum(r.totals.cliquesBrutos)} registrados · ${fmtPct(r.totals.pctHumano)}`,
               accent: "crimson"
             },
             {
               label: "Descadastros",
+              icon: <UserMinus />,
               value: fmtNum(e.totals.unsubscribes),
               foot: "via edições",
               accent: e.totals.unsubscribes > 0 ? "danger" : "ink"
@@ -78,7 +83,7 @@ export default async function Page() {
           className="paper p-5 mb-4"
           style={{ borderLeft: "3px solid var(--accent)" }}
         >
-          <h2 className="font-display mb-2.5" style={{ fontSize: 17, fontWeight: 600 }}>
+          <h2 className="nw-painel-t mb-2.5">
             {pctBot.toFixed(0)}% dos cliques não são de pessoas
           </h2>
           <p className="text-sm text-ink-mute leading-relaxed" style={{ maxWidth: "68ch" }}>
@@ -326,13 +331,10 @@ export default async function Page() {
             <span className="accent-line" />
             <span className="font-mono-tag">tipo de destino</span>
           </div>
-          <h2
-            className="font-display mb-3"
-            style={{ fontSize: "clamp(22px, 2.6vw, 30px)", lineHeight: 1.1, fontWeight: 400 }}
-          >
+          <h2 className="nw-secao__t mb-3" style={{ fontSize: "clamp(22px, 2.4vw, 28px)" }}>
             Que <span className="font-display-em">tipo de link</span> puxa clique.
           </h2>
-          <p className="text-ink-mute max-w-3xl leading-relaxed mb-6" style={{ fontSize: 15 }}>
+          <p className="nw-secao__s mb-6">
             Os {fmtNum(cliquesTotais)} cliques agrupados pelo destino, não pela URL. A
             classificação mora em <code>beehiiv_link_categorias</code> — host novo que nenhuma
             regra pegar aparece como “nao classificado”.

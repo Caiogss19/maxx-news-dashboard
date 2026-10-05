@@ -3,6 +3,7 @@ import { Section } from "@/components/Section";
 import { KPI } from "@/components/KPI";
 import { EditionsTable } from "@/components/EditionsTable";
 import { fmtNum, fmtPct } from "@/lib/format";
+import { Activity, Eye, Inbox, MailCheck, MailOpen, MousePointerClick, Newspaper, Trophy } from "lucide-react";
 
 export const revalidate = 259200; // 3 dias — casado com o job de sync
 
@@ -26,27 +27,27 @@ export default async function Page() {
       subtitle="Entregas, aberturas, cliques e descadastros de cada disparo da newsletter. Clique numa edição para abrir o detalhamento completo."
     >
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-        <KPI label="Edições enviadas" value={fmtNum(editions.length)} accent="navy" hint={`${fmtNum(recipients)} recipients totais`} />
-        <KPI label="Entregas" value={fmtNum(delivered)} accent="ink" hint={`${fmtNum(recipients - delivered)} bounces / inválidos`} />
-        <KPI label="Aberturas únicas" value={fmtNum(totalUniqueOpens)} accent="olive" hint={`${fmtNum(totalOpens)} aberturas totais`} />
-        <KPI label="Cliques únicos" value={fmtNum(totalClicks)} accent="amber" hint={`${totalUnsubs} unsub via edições`} />
+        <KPI label="Edições enviadas" icon={<Newspaper />} value={fmtNum(editions.length)} accent="navy" hint={`${fmtNum(recipients)} recipients totais`} />
+        <KPI label="Entregas" icon={<Inbox />} value={fmtNum(delivered)} accent="ink" hint={`${fmtNum(recipients - delivered)} bounces / inválidos`} />
+        <KPI label="Aberturas únicas" icon={<MailOpen />} value={fmtNum(totalUniqueOpens)} accent="olive" hint={`${fmtNum(totalOpens)} aberturas totais`} />
+        <KPI label="Cliques únicos" icon={<MousePointerClick />} value={fmtNum(totalClicks)} accent="amber" hint={`${totalUnsubs} unsub via edições`} />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <KPI label="Abertura média" value={fmtPct(avgOpen)} accent="olive" hint="média simples entre edições" />
+        <KPI label="Abertura média" icon={<Eye />} value={fmtPct(avgOpen)} accent="olive" hint="média simples entre edições" />
         <KPI
-          label="Melhor edição"
+          label="Melhor edição" icon={<Trophy />}
           value={best ? fmtPct(best.open_rate) : "—"}
           accent="plum"
           hint={best ? `Ed. ${best.edition_number} · ${best.title}` : undefined}
         />
         <KPI
-          label="Taxa de entrega"
+          label="Taxa de entrega" icon={<MailCheck />}
           value={recipients ? fmtPct(Math.round((delivered / recipients) * 1000) / 10) : "—"}
           accent="ink"
           hint="entregues ÷ recipients"
         />
         <KPI
-          label="Engajamento médio"
+          label="Engajamento médio" icon={<Activity />}
           value={delivered ? fmtPct(Math.round((totalUniqueOpens / delivered) * 1000) / 10) : "—"}
           accent="navy"
           hint="aberturas únicas ÷ entregas"

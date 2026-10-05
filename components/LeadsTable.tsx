@@ -7,7 +7,7 @@ export function LeadsTable({ leads }: { leads: LeadEngagement[] }) {
   return (
     <div className="paper overflow-hidden">
       <div className="flex items-baseline justify-between p-6 pb-4">
-        <h3 className="font-display text-xl">Diretório de leads</h3>
+        <h3 className="nw-painel-t">Diretório de leads</h3>
         <span className="font-mono-tag">{leads.length} leads · clique para ver a jornada</span>
       </div>
       {leads.length === 0 ? (

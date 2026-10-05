@@ -7,39 +7,25 @@ type Props = {
 };
 
 /**
- * Cabeçalho de seção. O `title` aceita `*trecho*` para dar ênfase — que neste
- * sistema é peso + cor de acento, não mais serifa itálica.
+ * Cabeçalho de seção: o `Cabecalho` da Central (ponto quadrado, rótulo, régua,
+ * número em mono à direita) em cima de um título grande. O `title` aceita
+ * `*trecho*` para dar ênfase — que neste sistema é a cor da marca, não itálico.
  */
 export function Section({ num, eyebrow, title, subtitle, children }: Props) {
   return (
-    <section className="pb-14">
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="accent-line" />
-          <span className="font-mono-tag">
-            {num} · {eyebrow}
-          </span>
+    <section className="nw-secao">
+      <header className="nw-secao__h">
+        <div className="spk-cab" style={{ ["--ac" as string]: "var(--crimson)" }}>
+          <span className="spk-cab__d" />
+          <span className="spk-cab__t">{eyebrow}</span>
+          <span className="spk-cab__r" />
+          <span className="spk-cab__n">{num}</span>
         </div>
-        <h1
-          className="font-display mb-3"
-          style={{ fontSize: "clamp(26px, 3.4vw, 38px)", lineHeight: 1.06, fontWeight: 400 }}
-        >
-          {title.split("*").map((part, i) =>
-            i % 2 === 1 ? (
-              <span key={i} className="font-display-em">
-                {part}
-              </span>
-            ) : (
-              <span key={i}>{part}</span>
-            )
-          )}
+        <h1 className="nw-secao__t">
+          {title.split("*").map((part, i) => (i % 2 === 1 ? <em key={i}>{part}</em> : <span key={i}>{part}</span>))}
         </h1>
-        {subtitle && (
-          <p className="text-ink-mute max-w-3xl leading-relaxed" style={{ fontSize: 15 }}>
-            {subtitle}
-          </p>
-        )}
-      </div>
+        {subtitle && <p className="nw-secao__s">{subtitle}</p>}
+      </header>
       <div>{children}</div>
     </section>
   );

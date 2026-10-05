@@ -1,0 +1,124 @@
+/* ═════════════════════════════════════════════════════════════════════════════
+   Tokens do redesenho — escala, não paleta.
+
+   A cor continua no `:root` de `index.css`. Ela é a única coisa do sistema que
+   muda com tema, e mover a fonte de verdade de lugar sem necessidade só cria
+   dois lugares para procurar. Aqui mora o que NÃO muda com tema — tipo, espaço,
+   raio, motion — mais as três sombras, que mudam e por isso ficam juntas no fim,
+   prontas para um `:root[data-theme="light"]` no dia em que houver um.
+
+   ⚠️  POR QUE `:root` E NÃO `@theme`
+
+   O plano pedia `@theme`, para cada token sair como variável CSS *e* como
+   utility do Tailwind. Não dá — e o teste é de uma linha. Com
+   `@theme { --spacing-2: 6px }` o build emite:
+
+       .p-2{padding:var(--spacing-2)}   .gap-2{gap:var(--spacing-2)}
+
+   Ou seja: o Tailwind ADOTA o token como a escala dele, e todo `p-2`, `gap-2`,
+   `m-2` das 709 classes do app passa de 8px para 6px, calado, sem erro nenhum.
+   O mesmo valeria para `--radius-*`, que ainda colidiria com o bloco do shadcn.
+
+   `:root` puro não gera utility, e não precisa gerar: os 473 `fontSize` de hoje
+   já consomem `var(--…)` inline, e os primitivos da fatia 3 são classes escritas
+   à mão, que também consomem `var(--…)`. Utility aqui seria conveniência para
+   código que ninguém vai escrever.
+
+   Os nomes foram escolhidos FORA dos namespaces do Tailwind (`--spacing-`,
+   `--radius-`, `--shadow-`, `--ease-`, `--text-`, `--leading-`, `--tracking-`,
+   `--font-weight-`) justamente para que essa colisão não possa acontecer por
+   acidente mais tarde. É por isso que o easing se chama `--mo-ease` e não
+   `--ease-in`: esse último é o nome que o Tailwind usa para a utility `ease-in`,
+   e redefini-lo mudaria o easing de quem escreve a classe.
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Tipografia ─────────────────────────────────────────────────────────────
+     Sete degraus, tirados do histograma dos 473 `fontSize:` que existiam em 25
+     valores distintos. NÃO é escala modular de propósito: 60% dos usos vivem
+     entre 10 e 13px, e uma razão 1.25 arrancaria justamente a faixa densa que
+     carrega o painel. Densa embaixo, esparsa em cima.                          */
+  --t-micro:   10px;   /* selo, procedência       ← absorve 8, 8.5, 9, 9.5, 10 */
+  --t-meta:    11px;   /* rótulo de coluna        ← absorve 10.5, 11           */
+  --t-dense:   12px;   /* célula de tabela        ← absorve 11.5, 12           */
+  --t-body:    13px;   /* corpo, campo do dossiê  ← absorve 12.5, 13           */
+  --t-lead:    15px;   /* título de card          ← absorve 13.5, 14, 14.5, 15 */
+  --t-title:   19px;   /* título de painel        ← absorve 16, 18, 20         */
+  --t-display: 28px;   /* número grande           ← absorve 22, 24, 26, 30     */
+  --t-hero:    clamp(28px, 3.2vw, 38px);
+
+  --lh-tight: 1.15;
+  --lh-snug:  1.35;
+  --lh-body:  1.55;
+
+  /* O aperto que faz número grande parecer o portal. É isto, mais peso 600 e
+     `tabular-nums`, e não uma segunda família tipográfica.                     */
+  --track-display: -0.03em;
+
+  /* `--w-book` é achado, não invenção: o @import de `index.css:1` já baixa o
+     peso 450 do Inter e NADA no repo usa. É o degrau que falta entre corpo e
+     rótulo — e é o que deixa fazer hierarquia sem caixa alta e sem mexer no
+     tamanho, que é a decisão de manter o sóbrio.                               */
+  --w-regular: 400;
+  --w-book:    450;
+  --w-medium:  500;
+  --w-semi:    600;
+
+  /* ── Espaço ──────────────────────────────────────────────────────────────── */
+  --s-1:  4px;   --s-2:  6px;   --s-3:  8px;
+  --s-4: 10px;   --s-5: 12px;   --s-6: 16px;
+  --s-7: 20px;   --s-8: 26px;   --s-9: 34px;
+
+  /* ── Raio ────────────────────────────────────────────────────────────────── */
+  --r-xs:    4px;
+  --r-sm:    8px;
+  --r-md:   11px;
+  --r-lg:   14px;
+  --r-pill: 999px;
+
+  /* ── Motion ──────────────────────────────────────────────────────────────── */
+  --mo-cursor: .15s;   /* feedback de cursor: hover, foco          */
+  --mo-object: .18s;   /* objeto que se move: gaveta, card, tarja  */
+  --mo-zoom:   .3s;    /* só zoom de imagem                       */
+  --mo-ease:   cubic-bezier(.2, .8, .2, 1);
+
+  /* Não existe `--lift-2`, e a ausência é decisão: linha de tabela NUNCA levanta.
+     `translateY` num `<tr>` cria camada de composição por linha, sobre centenas
+     de linhas, e briga com o scroll. Linha muda `background-color`; quem levanta
+     é card.                                                                     */
+  --lift-1: -1px;
+  --lift-3: -3px;
+  --lift-4: -4px;
+
+  /* ── Sombra — varia com tema, por isso fica no fim ───────────────────────── */
+  --sh-card:  inset 0 1px 0 rgba(255, 255, 255, .05), 0 16px 38px -16px rgba(0, 0, 0, .55);
+  --sh-hover: inset 0 1px 0 rgba(255, 255, 255, .07), 0 26px 54px -18px rgba(0, 0, 0, .66);
+  --sh-pop:   0 18px 44px -14px rgba(0, 0, 0, .62);
+}
+
+/* ⚠️  SOMBRA COM ACENTO NÃO PODE MORAR AQUI — e o erro seria silencioso.
+
+   Custom property resolve no elemento ONDE é declarada. Um `--sh-ac` que
+   contivesse `var(--ac)` resolveria contra o `:root`, o card herdaria a string
+   já substituída, e TODO card sairia da mesma cor — sem aviso, sem erro, sem
+   nada quebrado para investigar. Sombra com acento se escreve à mão dentro da
+   classe que recebe o `--ac`, na fatia 3.                                       */
+
+/* ── Menos movimento ─────────────────────────────────────────────────────────
+   Um bloco só, e ele funciona porque tudo consome token: zera-se na origem em
+   vez de repetir `@media` a cada regra e esquecer uma. A fatia 6 acrescenta os
+   seletores de animação AQUI DENTRO, não num segundo bloco.                    */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --mo-cursor: 0s;  --mo-object: 0s;  --mo-zoom: 0s;
+    --lift-1: 0;      --lift-3: 0;      --lift-4: 0;
+  }
+  /* O que não é token: as duas animações declaradas. Elas entram AQUI, no bloco
+     único, e não num `@media` próprio ao lado de cada regra — que é como o
+     portal faz e é como se esquece uma. */
+  .spk-amb::before { animation: none; }
+  .spk-entrar { animation: none; }
+  .spk-modal__painel { animation: none; }
+  .spk-rp__s[data-ativo] { animation: none; }
+  .spk-celula, .spk-bolha__mais { animation: none; }
+}

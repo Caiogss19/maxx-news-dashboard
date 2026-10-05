@@ -10,6 +10,7 @@ import { RecentEvents } from "@/components/RecentEvents";
 import { RecentOutbound } from "@/components/RecentOutbound";
 import { RDLink } from "@/components/RDLink";
 import { fmtNum, fmtPct, fmtDate, truncate } from "@/lib/format";
+import { Building, CalendarClock, GitCompare, PencilLine, Send, ShieldAlert, Tags, UserX } from "lucide-react";
 
 export const revalidate = 259200; // 3 dias — casado com o job de sync
 
@@ -98,11 +99,11 @@ export default async function Page() {
         subtitle="Eventos relacionados a posts (sent / updated / scheduled). Não tem email associado — vão direto pro Supabase, sem passar pelo RD."
       >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <KPI label="Posts enviados" value={fmtNum(s.posts.sent)} accent="amber" hint="post.sent" />
-          <KPI label="Posts agendados" value={fmtNum(s.posts.scheduled)} accent="ink" hint="post.scheduled" />
-          <KPI label="Posts editados" value={fmtNum(s.posts.updated)} accent="ink" hint="post.updated" />
+          <KPI label="Posts enviados" icon={<Send />} value={fmtNum(s.posts.sent)} accent="amber" hint="post.sent" />
+          <KPI label="Posts agendados" icon={<CalendarClock />} value={fmtNum(s.posts.scheduled)} accent="ink" hint="post.scheduled" />
+          <KPI label="Posts editados" icon={<PencilLine />} value={fmtNum(s.posts.updated)} accent="ink" hint="post.updated" />
           <KPI
-            label="Categorias ativas"
+            label="Categorias ativas" icon={<Tags />}
             value={s.events.byCategory.length}
             accent="navy"
             hint={s.events.byCategory.map((c) => c.category).join(" · ")}
@@ -132,24 +133,28 @@ export default async function Page() {
           items={[
             {
               label: "Fora da base",
+              icon: <UserX />,
               value: bloq.bloqueados.length,
               foot: bloq.porMotivo.map((m) => `${m.value} ${m.label}`).join(" · "),
               accent: "danger"
             },
             {
               label: "Domínios suspeitos",
+              icon: <ShieldAlert />,
               value: bloq.suspeitosDeBloqueio.length,
               foot: "3+ pessoas recebendo, zero abertura — cara de filtro corporativo",
               accent: "amber"
             },
             {
               label: "Internos fora da lista",
+              icon: <Building />,
               value: bloq.internosNaoCadastrados,
               foot: "em domínio interno, ausentes de beehiiv_internal_emails",
               accent: "navy"
             },
             {
               label: "Divergentes com o RD",
+              icon: <GitCompare />,
               value: bloq.rdChecados === 0 ? "—" : bloq.divergentes.length,
               foot:
                 bloq.rdChecados === 0
@@ -163,7 +168,7 @@ export default async function Page() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
           <div className="paper overflow-hidden">
             <div className="flex items-baseline justify-between p-6 pb-4">
-              <h3 className="font-display text-xl">Saídas recentes</h3>
+              <h3 className="nw-painel-t">Saídas recentes</h3>
               <span className="font-mono-tag">{bloq.bloqueados.length} no total</span>
             </div>
             {bloq.bloqueados.length === 0 ? (
@@ -218,7 +223,7 @@ export default async function Page() {
       >
         <div className="paper overflow-hidden">
           <div className="flex items-baseline justify-between p-6 pb-4">
-            <h3 className="font-display text-xl">Recebem e ninguém abre</h3>
+            <h3 className="nw-painel-t">Recebem e ninguém abre</h3>
             <span className="font-mono-tag">
               {bloq.suspeitosDeBloqueio.length} domínios · de {bloq.dominios.length} analisados
             </span>
@@ -280,7 +285,7 @@ export default async function Page() {
           ) : (
             <>
               <div className="flex items-baseline justify-between p-6 pb-4">
-                <h3 className="font-display text-xl">Ativos no RD, fora do Beehiiv</h3>
+                <h3 className="nw-painel-t">Ativos no RD, fora do Beehiiv</h3>
                 <span className="font-mono-tag">
                   {bloq.divergentes.length} de {bloq.rdChecados} checados
                 </span>
@@ -325,7 +330,7 @@ export default async function Page() {
       >
         <div className="paper overflow-hidden">
           <div className="flex items-baseline justify-between p-6 pb-4">
-            <h3 className="font-display text-xl">Endereços internos na base</h3>
+            <h3 className="nw-painel-t">Endereços internos na base</h3>
             <span className="font-mono-tag">
               {bloq.internos.length} encontrados · {bloq.internosNaoCadastrados} fora da lista
             </span>

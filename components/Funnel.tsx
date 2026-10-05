@@ -27,7 +27,7 @@ export function Funnel({
   return (
     <div className="paper">
       <div className="panel-head">
-        <h3 className="font-display" style={{ fontSize: 17, fontWeight: 500 }}>
+        <h3 className="nw-painel-t">
           {title}
         </h3>
         {caption && <span className="font-mono-tag whitespace-nowrap">{caption}</span>}
