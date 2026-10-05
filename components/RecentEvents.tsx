@@ -5,7 +5,7 @@ export function RecentEvents({ rows }: { rows: EventRow[] }) {
   return (
     <div className="paper overflow-hidden">
       <div className="flex items-baseline justify-between p-6 pb-4">
-        <h3 className="font-display text-xl">Atividade recente · Beehiiv → RD</h3>
+        <h3 className="nw-painel-t">Atividade recente · Beehiiv → RD</h3>
         <span className="font-mono-tag">últimos {rows.length} eventos</span>
       </div>
       {rows.length === 0 ? (

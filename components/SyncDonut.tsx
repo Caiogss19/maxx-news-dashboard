@@ -23,7 +23,7 @@ export function SyncDonut({
   return (
     <div className="paper p-6">
       <div className="flex items-baseline justify-between mb-2">
-        <h3 className="font-display text-xl">Sync com RD Station</h3>
+        <h3 className="nw-painel-t">Sync com RD Station</h3>
         <span className="font-mono-tag">{total} eventos elegíveis</span>
       </div>
       <div className="text-xs text-ink-mute mb-4">

@@ -6,7 +6,7 @@ export function EditionsTable({ editions }: { editions: EditionPerf[] }) {
   return (
     <div className="paper overflow-hidden">
       <div className="flex items-baseline justify-between p-6 pb-4">
-        <h3 className="font-display text-xl">Edições publicadas</h3>
+        <h3 className="nw-painel-t">Edições publicadas</h3>
         <span className="font-mono-tag">{editions.length} edições · clique para detalhar</span>
       </div>
       {editions.length === 0 ? (

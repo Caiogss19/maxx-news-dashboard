@@ -12,7 +12,7 @@ export function HourBars({ data }: { data: Point[] }) {
   return (
     <div className="paper p-5">
       <div className="flex items-baseline justify-between mb-1">
-        <h3 className="font-display" style={{ fontSize: 17, fontWeight: 500 }}>
+        <h3 className="nw-painel-t">
           Quando o leitor engaja
         </h3>
         <span className="font-mono-tag">hora BRT · sem scanners</span>

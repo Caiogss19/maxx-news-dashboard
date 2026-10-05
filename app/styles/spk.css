@@ -1,0 +1,776 @@
+/* ═════════════════════════════════════════════════════════════════════════════
+   Classes dos primitivos — `src/components/base/`.
+
+   POR QUE CLASSE, E NÃO ESTILO INLINE
+
+   Não é preferência. Os efeitos que definem a linguagem do portal são
+   impossíveis em `style={{}}`: a borda-gradiente de 1px precisa de `::after` com
+   `mask-composite`, o levantar precisa de `:hover`, e nenhum dos dois existe
+   como propriedade de elemento. As duas telas piloto são hoje 100% inline, sem
+   uma classe — o redesenho obriga a mover, e isto é o destino.
+
+   `@layer components` deixa as classes ABAIXO das utilities na cascata, então
+   `<Card className="mb-4">` funciona e a utility sempre vence. É o que
+   `JourneyMonitor` (127 `className`) vai precisar quando chegar a vez dele.
+
+   O acento entra por `style={{ ['--ac']: cor }}`. É o único inline que fica, e
+   é exatamente o mecanismo do portal (`--ac` lá também).
+   ═════════════════════════════════════════════════════════════════════════════ */
+
+@layer components {
+
+  /* ── Layout ─────────────────────────────────────────────────────────────────
+     O vocabulário mínimo de arranjo. Existe para que uma TELA não precise de
+     `style={{ display:'grid', gap:16 }}` em cada bloco — que é metade dos 1.078
+     estilos inline que o redesenho está desmontando.                           */
+  .spk-pilha { display: grid; gap: var(--s-6); align-content: start; min-width: 0; }
+  .spk-pilha--junta { gap: var(--s-3); }
+  .spk-pilha--solta { gap: var(--s-8); }
+  .spk-fila { display: flex; align-items: center; gap: var(--s-4); flex-wrap: wrap; min-width: 0; }
+  .spk-fila--fim { margin-left: auto; }
+
+  /* O dado ANTERIOR, enquanto a busca falhou: visível para comparar, apagado o
+     bastante para nunca ser confundido com resultado fresco. É a metade visual
+     da Regra Dura nº 2 — a outra é a tarja de erro que vem junto.              */
+  .spk-apagado { opacity: .45; }
+
+  /* ── Card ───────────────────────────────────────────────────────────────────
+     A borda-gradiente é `::after` + `mask-composite`: pinta-se o padding-box de
+     1px e recorta-se o miolo. `-webkit-mask-composite:xor` é obrigatório — sem
+     ele o Safari pinta o card inteiro de gradiente.
+
+     A sombra interna com acento é escrita AQUI, à mão, e não podia ser token:
+     custom property resolve no elemento onde é declarada, então um `--sh-ac` no
+     `:root` contendo `var(--ac)` resolveria contra o `:root` e todo card sairia
+     da mesma cor — sem erro, sem nada quebrado para investigar.                 */
+  .spk-card {
+    /* O acento padrão é a MOLDURA (azul). A tela troca para `--crimson` no card
+       cujo conteúdo é dado de marca — KPI, score. É a divisão `--uv` × `--ac`. */
+    --ac: var(--uv);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    padding: var(--s-6);
+    border: 1px solid var(--rule);
+    border-radius: var(--r-lg);
+    /* Gradiente vertical, claro no topo e escuro embaixo, como o `.pa-card`: é
+       o que dá volume a uma superfície quase preta. Cor chapada num fundo #000
+       vira retângulo, não card. */
+    background: linear-gradient(180deg, var(--bg-soft), var(--bg-paper));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .05),
+      inset 0 34px 58px -34px color-mix(in srgb, var(--ac) 30%, transparent),
+      0 16px 38px -16px rgba(0, 0, 0, .55);
+  }
+  .spk-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    pointer-events: none;
+    opacity: .5;
+    transition: opacity var(--mo-object) var(--mo-ease);
+    background: linear-gradient(160deg, color-mix(in srgb, var(--ac) 55%, transparent), transparent 42%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+            mask-composite: exclude;
+  }
+  .spk-card > * { position: relative; z-index: 1; }
+
+  /* Levantar é OPT-IN: card que não clica não levanta. Card informativo que sobe
+     ao passar o mouse promete uma ação que não existe.                          */
+  .spk-card--int {
+    cursor: pointer;
+    transition: transform var(--mo-object) var(--mo-ease),
+                border-color var(--mo-object) var(--mo-ease),
+                box-shadow var(--mo-object) var(--mo-ease);
+  }
+  .spk-card--int:hover {
+    transform: translateY(var(--lift-4));
+    border-color: color-mix(in srgb, var(--ac) 55%, var(--rule));
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, .07),
+      inset 0 42px 66px -32px color-mix(in srgb, var(--ac) 45%, transparent),
+      0 26px 54px -18px rgba(0, 0, 0, .66);
+  }
+  .spk-card--int:hover::after { opacity: 1; }
+  .spk-card--int:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+
+  .spk-card--raso { padding: var(--s-5); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04); }
+  /* Card que SEGURA uma tabela: sem padding, para as células encostarem na
+     borda, e com `overflow: hidden` para o raio recortar o cabeçalho. */
+  .spk-card--tabela { padding: 0; overflow: hidden; }
+  /* `nu` é contêiner, não superfície: sem fundo, sem borda, sem sombra, sem
+     padding. Serve para agrupar com o mesmo vocabulário de layout do Card sem
+     desenhar uma caixa que não significa nada. */
+  .spk-card--nu   { background: none; box-shadow: none; border-color: transparent; padding: 0; }
+  .spk-card--nu::after { display: none; }
+
+  /* ── Cabeçalho ──────────────────────────────────────────────────────────────
+     Quatro sinais fracos no lugar de um forte. A caixa alta comprava FORMA — um
+     marcador inconfundivelmente não-prosa, pequeno demais para ser título. Como
+     a decisão é manter o sóbrio (`.uppercase` continua neutralizada app-wide),
+     a forma vem de outro lugar:
+
+     (a) a régua — fio de 1px do rótulo até a borda direita. É o mais forte, e é
+         de graça: diz "fronteira de seção" sem levantar a voz.
+     (b) peso e cor, não tamanho — 450/`--ink-mute` contra 600/`--ink`. 150
+         unidades de peso no mesmo tamanho lêem como hierarquia; 1px a menos não
+         lê como nada.
+     (c) o ponto QUADRADO com raio 3px — um squircle, não um círculo. Essa
+         diferença é metade do "parece o portal", e o `LeadDossie` tinha
+         inventado a ideia sozinho.
+     (d) mono só no número da direita, nunca no rótulo.                          */
+  .spk-cab {
+    --ac: var(--ink-faint);
+    display: flex;
+    align-items: center;
+    gap: var(--s-4);
+    margin-bottom: var(--s-5);
+    min-width: 0;
+  }
+  .spk-cab__d {
+    width: 9px; height: 9px; flex: none;
+    border-radius: 3px;
+    background: var(--ac);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--ac) 70%, transparent);
+  }
+  .spk-cab__i { flex: none; display: grid; place-items: center; color: var(--ac); }
+  .spk-cab__i > svg { width: 13px; height: 13px; }
+  .spk-cab__t {
+    display: flex; align-items: baseline; gap: var(--s-3);
+    min-width: 0;
+    font-size: var(--t-meta);
+    font-weight: var(--w-book);
+    color: var(--ink-mute);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .spk-cab--forte .spk-cab__t { font-size: var(--t-lead); font-weight: var(--w-semi); color: var(--ink); }
+  .spk-cab__r { flex: 1 1 auto; height: 1px; background: var(--rule); min-width: var(--s-6); }
+  .spk-cab__n {
+    flex: none;
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--t-micro);
+    color: var(--ink-faint);
+  }
+
+  /* ── Chip ───────────────────────────────────────────────────────────────────
+     `--tom` e `--tom-bg` entram por classe de tom, não por prop de cor crua: o
+     componente fala semântica ('ok', 'erro') e a cor é consequência.            */
+  .spk-chip {
+    --tom: var(--ink-mute);
+    --tom-bg: var(--bg-soft);
+    display: inline-flex; align-items: center; gap: var(--s-2);
+    padding: 2px var(--s-3);
+    border: 1px solid color-mix(in srgb, var(--tom) 30%, transparent);
+    border-radius: var(--r-pill);
+    background: var(--tom-bg);
+    color: var(--tom);
+    font-size: var(--t-micro);
+    font-weight: var(--w-medium);
+    line-height: var(--lh-snug);
+    white-space: nowrap;
+  }
+  .spk-chip > svg { width: 10px; height: 10px; flex: none; }
+  .spk-chip--num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+  .spk-chip--solido { background: color-mix(in srgb, var(--tom) 16%, transparent); }
+  .spk-chip--fantasma { background: none; }
+  /* Selo de procedência: quadrado, não pílula. Ele não rotula o dado — comenta
+     de onde o dado veio, e comentário recua. `cursor: help` porque a explicação
+     inteira mora no `title`. */
+  .spk-chip--micro {
+    padding: 0 var(--s-1);
+    border-radius: var(--r-xs);
+    font-size: var(--t-micro);
+    font-weight: var(--w-regular);
+    line-height: 1.5;
+    opacity: .75;
+    cursor: help;
+    flex: none;
+  }
+
+  /* ── Tarja ──────────────────────────────────────────────────────────────── */
+  .spk-tarja {
+    --tom: var(--amber);
+    --tom-bg: var(--amber-soft);
+    display: flex; align-items: flex-start; gap: var(--s-4);
+    padding: var(--s-4) var(--s-5);
+    border: 1px solid color-mix(in srgb, var(--tom) 34%, transparent);
+    border-left: 2px solid var(--tom);
+    border-radius: var(--r-sm);
+    background: var(--tom-bg);
+    font-size: var(--t-dense);
+    line-height: var(--lh-body);
+    color: var(--ink);
+  }
+  .spk-tarja__i { flex: none; color: var(--tom); margin-top: 1px; }
+  .spk-tarja__i > svg { width: 13px; height: 13px; display: block; }
+  .spk-tarja__c { flex: 1 1 auto; min-width: 0; }
+  .spk-tarja__a { flex: none; }
+
+  /* ── Vazio ──────────────────────────────────────────────────────────────────
+     O `children` (a cópia acionável) renderiza com MAIS peso que o título, de
+     propósito: a API empurra quem escreve para dizer o que fazer, não para
+     decorar o nada.                                                             */
+  .spk-vazio {
+    --ac: var(--ink-faint);
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--s-4);
+    min-height: 200px;
+    padding: var(--s-9) var(--s-7);
+    text-align: center;
+    border: 1px dashed var(--rule-strong);
+    border-radius: var(--r-lg);
+    background: radial-gradient(120% 100% at 50% 0%, color-mix(in srgb, var(--ac) 8%, transparent), transparent 60%);
+  }
+  .spk-vazio__i { color: var(--ac); opacity: .85; }
+  .spk-vazio__i > svg { width: 28px; height: 28px; display: block; }
+  .spk-vazio__t { font-size: var(--t-dense); color: var(--ink-faint); }
+  .spk-vazio__c { font-size: var(--t-body); font-weight: var(--w-medium); color: var(--ink); line-height: var(--lh-body); max-width: 44ch; }
+
+  /* ── Carregando ─────────────────────────────────────────────────────────────
+     SEM shimmer. Animação em esqueleto custa frame exatamente na tela que ainda
+     não terminou de carregar — é o pior momento possível para gastar.           */
+  .spk-skel { background: var(--bg-soft); border-radius: var(--r-xs); }
+  .spk-skel--linha  { height: 11px; }
+  .spk-skel--titulo { height: 17px; width: 40%; }
+  .spk-skel--bloco  { height: 100%; min-height: 84px; border-radius: var(--r-md); }
+  .spk-skel__pilha { display: flex; flex-direction: column; gap: var(--s-3); width: 100%; }
+
+  /* ── Valor ──────────────────────────────────────────────────────────────────
+     O primitivo da Regra Dura nº 2. Ver `Valor.tsx` para o porquê de não haver
+     prop de fallback.                                                           */
+  .spk-valor { font-variant-numeric: tabular-nums; color: var(--ink); }
+  .spk-valor--num { font-family: var(--font-mono); }
+  /* `null` = não consegui medir. Traço pontilhado, apagado, com `title`. Nunca 0. */
+  .spk-valor--nulo { color: var(--ink-faint); border-bottom: 1px dotted var(--rule-strong); cursor: help; }
+  /* `naoChecado` = nem tentei. Visualmente distinto de `null`, senão some a
+     diferença entre "falhou" e "não perguntei".                                 */
+  .spk-valor--nc { color: var(--ink-faint); opacity: .6; cursor: help; }
+
+  /* ── Kpi ────────────────────────────────────────────────────────────────── */
+  .spk-kpi { display: flex; flex-direction: column; gap: var(--s-1); min-width: 0; }
+  .spk-kpi__r { font-size: var(--t-meta); font-weight: var(--w-book); color: var(--ink-mute); }
+  .spk-kpi__v { font-size: var(--t-display); font-weight: var(--w-semi); letter-spacing: var(--track-display); line-height: var(--lh-tight); }
+  .spk-kpi__s { font-size: var(--t-micro); color: var(--ink-faint); }
+
+  /* ── Barra ──────────────────────────────────────────────────────────────── */
+  /* `width: 100%` + `min-width`: a barra não tem conteúdo, então dentro de um
+     contêiner `flex: none` — o `.spk-linha__v`, por exemplo — ela colapsaria
+     para largura zero e sumiria da tela sem erro nenhum. O mínimo garante que
+     ela SEMPRE apareça, inclusive a hachurada, que é a que mais importa ver. */
+  .spk-barra { --ac: var(--crimson); width: 100%; min-width: 96px; height: 5px; border-radius: var(--r-pill); background: var(--bg-soft); overflow: hidden; }
+  .spk-barra__f { height: 100%; border-radius: inherit; background: var(--ac); transition: width var(--mo-object) var(--mo-ease); }
+  /* `pct === null` vira trilho hachurado. NUNCA barra de 0% — 0% lê como "medi e
+     deu zero", que é uma afirmação sobre o mundo, não sobre a medição.          */
+  .spk-barra--nulo {
+    background-image: repeating-linear-gradient(135deg, var(--rule-strong) 0 3px, transparent 3px 7px);
+    cursor: help;
+  }
+
+  /* ── Linha (rótulo → valor) ─────────────────────────────────────────────── */
+  .spk-linha { display: flex; align-items: baseline; gap: var(--s-4); padding: var(--s-2) 0; min-width: 0; }
+  .spk-linha + .spk-linha { border-top: 1px solid var(--rule); }
+  .spk-linha__r { flex: none; font-size: var(--t-meta); font-weight: var(--w-book); color: var(--ink-mute); }
+  .spk-linha__p { flex: 1 1 auto; min-width: var(--s-4); }
+  .spk-linha__v { flex: none; font-size: var(--t-dense); color: var(--ink); text-align: right; min-width: 0; }
+
+  /* ── Tabela ─────────────────────────────────────────────────────────────── */
+  .spk-tab { width: 100%; border-collapse: collapse; font-size: var(--t-dense); }
+  .spk-tab th {
+    text-align: left; font-size: var(--t-meta); font-weight: var(--w-book);
+    color: var(--ink-mute); padding: var(--s-3) var(--s-4);
+    border-bottom: 1px solid var(--rule-strong); white-space: nowrap;
+  }
+  .spk-tab td { padding: var(--s-4); border-bottom: 1px solid var(--rule); color: var(--ink); }
+  .spk-tab tbody tr { transition: background-color var(--mo-cursor) var(--mo-ease); }
+  /* Linha muda FUNDO, nunca `transform`: levantar `<tr>` cria camada de
+     composição por linha, sobre centenas de linhas, e briga com o scroll.       */
+  .spk-tab--clicavel tbody tr { cursor: pointer; }
+  .spk-tab--clicavel tbody tr:hover { background: var(--bg-soft); }
+  .spk-tab__num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; }
+  .spk-tab__par--aberto > tr:first-child { background: var(--bg-soft); }
+  .spk-tab__gaveta > td { padding: 0; background: var(--bg-soft); border-bottom: 1px solid var(--rule-strong); }
+  /* `tbody` por par mata o zebrado padrão do hover em cima da gaveta: sem isto o
+     hover da gaveta acendia como se ela fosse mais uma linha clicável. */
+  .spk-tab--clicavel .spk-tab__gaveta:hover { background: var(--bg-soft); }
+  /* O respiro de dentro da gaveta. Fica aqui e não na tela porque toda gaveta
+     precisa dele — a célula que a contém tem `padding: 0` de propósito, para o
+     conteúdo poder ir de borda a borda quando quiser. */
+  .spk-gaveta { padding: var(--s-5) var(--s-6) var(--s-6); }
+
+  /* ── Botão ──────────────────────────────────────────────────────────────── */
+  .spk-btn {
+    --tom: var(--ink);
+    display: inline-flex; align-items: center; justify-content: center; gap: var(--s-2);
+    padding: var(--s-3) var(--s-5);
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--r-sm);
+    background: var(--bg-soft);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: var(--t-dense);
+    font-weight: var(--w-medium);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .spk-btn > svg { width: 13px; height: 13px; flex: none; }
+  .spk-btn:hover:not(:disabled) { border-color: var(--ink-faint); background: var(--bg-paper); }
+  .spk-btn:focus-visible { outline: 2px solid var(--crimson); outline-offset: 2px; }
+  .spk-btn:disabled { opacity: .45; cursor: not-allowed; }
+  .spk-btn--primario { background: var(--crimson); border-color: var(--crimson); color: var(--bg); }
+  /* O primário é DADO (laranja), então o hover dele acende em laranja — o anel
+     azul da regra geral seria a moldura falando por cima da marca. */
+  .spk-btn--primario:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--crimson) 88%, var(--ink));
+    border-color: color-mix(in srgb, var(--crimson) 88%, var(--ink));
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--crimson) 45%, transparent),
+                0 6px 18px -8px color-mix(in srgb, var(--crimson) 65%, transparent);
+  }
+  .spk-btn--perigo:hover:not(:disabled) {
+    border-color: color-mix(in srgb, var(--danger) 60%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 40%, transparent);
+  }
+  .spk-btn--fantasma { background: none; border-color: transparent; color: var(--ink-mute); }
+  .spk-btn--fantasma:hover:not(:disabled) { background: var(--bg-soft); color: var(--ink); }
+  .spk-btn--perigo { border-color: color-mix(in srgb, var(--danger) 45%, transparent); background: var(--danger-soft); color: var(--danger); }
+  .spk-btn--pequeno { padding: var(--s-1) var(--s-3); font-size: var(--t-meta); }
+  .spk-btn--grande  { padding: var(--s-4) var(--s-7); font-size: var(--t-body); }
+
+  /* ── Segmentado ─────────────────────────────────────────────────────────── */
+  .spk-seg { display: inline-flex; padding: 2px; border: 1px solid var(--rule); border-radius: var(--r-sm); background: var(--bg-soft); }
+  .spk-seg__b {
+    padding: var(--s-1) var(--s-4);
+    border: 0; border-radius: var(--r-xs);
+    background: none; color: var(--ink-mute);
+    font-family: inherit; font-size: var(--t-meta); font-weight: var(--w-medium);
+    cursor: pointer; white-space: nowrap;
+  }
+  .spk-seg__b:hover:not(:disabled):not([aria-pressed="true"]) { color: var(--ink); }
+  .spk-seg__b[aria-pressed="true"] { background: var(--bg-paper); color: var(--ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .06); }
+  .spk-seg__b:disabled { opacity: .45; cursor: not-allowed; }
+
+  /* ── Resposta ao mouse, em TODO botão ───────────────────────────────────────
+     O problema: as 7 telas ainda não migradas pintam `background` INLINE, e
+     estilo inline vence regra de CSS. Não dá para mudar o fundo delas por aqui
+     sem reescrever cada uma.
+
+     A saída é atacar por propriedades que NENHUMA delas toca — `filter`,
+     `box-shadow` e `transform`. Essas passam por cima do inline sem conflito, e
+     é por isso que o efeito alcança a plataforma inteira hoje, não só onde o
+     redesenho já passou.
+
+     `brightness` funciona no botão preenchido; o anel azul funciona no vazado.
+     Juntos cobrem os dois tipos sem precisar saber qual é qual.                */
+  :where(button, [role="button"]):not(:disabled):not([aria-disabled="true"]) {
+    transition: filter var(--mo-cursor) var(--mo-ease),
+                box-shadow var(--mo-cursor) var(--mo-ease),
+                transform var(--mo-cursor) var(--mo-ease),
+                border-color var(--mo-cursor) var(--mo-ease),
+                background-color var(--mo-cursor) var(--mo-ease),
+                color var(--mo-cursor) var(--mo-ease);
+  }
+  button:not(:disabled):not(.spk-sair):not(.spk-seg__b):hover {
+    filter: brightness(1.16);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--uv) 34%, transparent);
+    transform: translateY(var(--lift-1));
+  }
+  /* O pressionar DESFAZ o levantar. Sem isto o botão fica subindo e nunca
+     "afunda", e o clique não devolve confirmação nenhuma ao dedo. */
+  button:not(:disabled):active { transform: none; filter: brightness(.94); }
+
+  /* Botão de texto puro (o "Sair") não ganha anel — anel em volta de palavra
+     solta parece caixa quebrada. Ele responde só na cor. */
+  .spk-sair:hover { color: var(--danger); }
+  /* Segmentado: o anel iria em volta de CADA opção, dentro de um trilho que já
+     tem borda. Ele responde por dentro. */
+  .spk-seg__b:not(:disabled):not([aria-pressed="true"]):hover {
+    background: color-mix(in srgb, var(--uv) 12%, transparent);
+    color: var(--ink);
+  }
+
+  /* ── Navegação (a moldura) ──────────────────────────────────────────────────
+     O tratamento do `.pa-navi` do portal: hover que preenche, ativo em gradiente
+     horizontal com anel interno, e o fio de 3px acendendo na borda esquerda.
+
+     O fio é `::before` posicionado FORA do item (`left: -4px`) — ele pertence à
+     borda da sidebar, não ao botão, e é o que faz o ativo parecer preso à
+     estrutura em vez de flutuando.                                             */
+  .spk-navi {
+    position: relative;
+    display: flex; align-items: center; gap: var(--s-4);
+    padding: var(--s-3) var(--s-4);
+    margin-bottom: 2px;
+    border-radius: var(--r-md);
+    color: var(--ink-mute);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color var(--mo-cursor) var(--mo-ease),
+                box-shadow var(--mo-cursor) var(--mo-ease),
+                color var(--mo-cursor) var(--mo-ease);
+  }
+  /* Hover azul, não cinza: o item aponta para a MESMA cor do estado ativo, mais
+     fraca. É assim que o hover vira promessa — "clicando, fica assim" — em vez
+     de um cinza genérico que não diz para onde leva.
+
+     ⚠️ O ANEL é o que faltava. Na barra COMPACTA o hover já desenhava
+     `inset 0 0 0 1px` em volta do ícone, e na ABERTA pintava só uma chapa de
+     fundo — o mesmo gesto rendia dois desenhos diferentes, e o da barra aberta
+     parecia morto ao lado do outro. Agora os dois modos têm fundo + anel, com
+     os mesmos 13%/20% de azul; o que muda é só ONDE o azul é pintado (no item
+     aqui, no ícone lá), que é a diferença que os dois layouts justificam.
+
+     O gradiente é 90°, como o do ativo, um degrau mais fraco: hover e ativo
+     passam a ser a mesma forma em duas intensidades. */
+  .spk-navi:hover {
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--uv) 13%, transparent),
+      color-mix(in srgb, var(--uv) 4%, transparent));
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--uv) 20%, transparent);
+  }
+  .spk-navi:hover .spk-navi__i { color: var(--uv2); }
+  .spk-navi__i { flex: none; display: grid; place-items: center; color: currentColor; }
+  .spk-navi__c { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+  .spk-navi__t { font-size: var(--t-body); font-weight: var(--w-medium); white-space: nowrap; }
+  .spk-navi__s { font-size: var(--t-meta); color: var(--ink-faint); white-space: nowrap; }
+  /* O ícone do ATIVO em azul: é o único realce que sobrevive à barra compacta,
+     onde o gradiente de fundo fica estreito demais para ler como estado. */
+  .spk-navi[aria-current="page"] .spk-navi__i { color: var(--uv); }
+
+  .spk-navi[aria-current="page"] {
+    background: linear-gradient(90deg,
+      color-mix(in srgb, var(--uv) 22%, transparent),
+      color-mix(in srgb, var(--uv) 6%, transparent));
+    color: var(--ink);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--uv) 26%, transparent);
+  }
+  .spk-navi[aria-current="page"] .spk-navi__t { color: var(--ink); }
+  .spk-navi[aria-current="page"]::before {
+    content: ""; position: absolute; left: -4px; top: 50%;
+    transform: translateY(-50%);
+    width: 3px; height: 20px; border-radius: 3px;
+    background: var(--uv);
+    box-shadow: 0 0 12px var(--uv);
+  }
+
+  /* A marca e o avatar: gradiente `--uv → --uv2`, como o `.pa-user .av`. */
+  .spk-marca {
+    width: 30px; height: 30px; flex: none;
+    display: grid; place-items: center;
+    border-radius: var(--r-sm);
+    background: linear-gradient(135deg, var(--crimson), color-mix(in srgb, var(--crimson) 55%, var(--uv)));
+    color: var(--bg);
+    font-weight: 700; font-size: var(--t-lead);
+  }
+  .spk-avatar {
+    width: 26px; height: 26px; flex: none;
+    display: grid; place-items: center;
+    border-radius: var(--r-pill);
+    background: linear-gradient(135deg, var(--uv), var(--uv2));
+    color: var(--bg);
+    font-size: var(--t-micro); font-weight: 700;
+  }
+
+  /* Botão de ícone / sair, com o hover do portal: a borda é que acende. */
+  .spk-icbtn {
+    display: flex; align-items: center; justify-content: center; gap: var(--s-2);
+    width: 100%; padding: var(--s-3);
+    border: 1px solid var(--rule); border-radius: var(--r-sm);
+    background: var(--bg-soft); color: var(--ink-mute);
+    font: inherit; font-size: var(--t-dense); font-weight: var(--w-medium);
+    cursor: pointer;
+    transition: color var(--mo-cursor) var(--mo-ease), border-color var(--mo-cursor) var(--mo-ease);
+  }
+  .spk-icbtn:hover { color: var(--ink); border-color: var(--uv); }
+  .spk-sair {
+    background: none; border: none; padding: 0;
+    font: inherit; font-size: var(--t-micro); color: var(--ink-faint);
+    cursor: pointer;
+    transition: color var(--mo-cursor) var(--mo-ease);
+  }
+  .spk-sair:hover { color: var(--danger); }
+
+  /* ── Topo ───────────────────────────────────────────────────────────────────
+     Translúcido com `backdrop-filter`, como o portal: o conteúdo passa POR BAIXO
+     dele ao rolar em vez de sumir atrás de uma barra opaca. É o que faz a página
+     parecer uma superfície contínua e não duas.                                */
+  .spk-topo {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: var(--s-6);
+    height: 64px; padding: 0 var(--s-7);
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--rule);
+    background: color-mix(in srgb, var(--bg) 78%, transparent);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
+  .spk-topo__t { font-size: var(--t-title); font-weight: var(--w-semi); color: var(--ink); letter-spacing: var(--track-display); line-height: var(--lh-tight); }
+  .spk-topo__s { margin-top: 1px; font-size: var(--t-dense); color: var(--ink-mute); }
+
+  /* ── Mouseover, em toda a plataforma ────────────────────────────────────────
+     As 7 telas ainda não migradas desenham superfície com estilo inline, então
+     não têm como receber `:hover` pelo componente. Estas regras alcançam o que
+     elas JÁ usam — `<table>`, `<a>`, `<button>`, `<summary>` — para que o
+     feedback de cursor exista na plataforma inteira, e não só onde o redesenho
+     passou. Não é substituto da migração; é o piso até ela chegar.             */
+  tbody tr { transition: background-color var(--mo-cursor) var(--mo-ease); }
+  a:not(.spk-navi):not(.spk-campo__link):hover { color: var(--uv2); }
+  /* Foco visível, e AZUL: a moldura é quem fala com o cursor e com o teclado.
+     Antes o foco dependia do outline padrão do navegador, que no fundo preto
+     do portal some. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--uv);
+    outline-offset: 2px;
+    border-radius: var(--r-xs);
+  }
+
+  /* ── A barra lateral, e o colapso ───────────────────────────────────────────
+     A largura mora numa VARIÁVEL, e tanto a barra quanto o conteúdo a leem. Era
+     `w-[228px]` na barra e `ml-[228px]` no conteúdo — dois números iguais em
+     dois arquivos, que só continuam iguais enquanto alguém lembra. Recolher o
+     menu com eles cravados deixaria 164px de buraco preto no meio da tela.     */
+  .spk-app { --nav-w: 228px; }
+  .spk-app--compacta { --nav-w: 64px; }
+
+  .spk-nav {
+    position: fixed; left: 0; top: 0; z-index: 40;
+    display: flex; flex-direction: column;
+    width: var(--nav-w); height: 100vh;
+    background: var(--bg);
+    border-right: 1px solid var(--rule);
+    /* Só a LARGURA anima. Animar `all` aqui arrastaria junto a cor de fundo de
+       cada item e o gradiente do ativo, a 60fps, por 180ms, à toa. */
+    transition: width var(--mo-object) var(--mo-ease);
+  }
+  .spk-conteudo {
+    margin-left: var(--nav-w);
+    transition: margin-left var(--mo-object) var(--mo-ease);
+  }
+
+  .spk-nav-toggle {
+    margin-left: auto; flex: none;
+    display: grid; place-items: center;
+    width: 26px; height: 26px;
+    border: 1px solid transparent; border-radius: var(--r-xs);
+    background: none; color: var(--ink-faint);
+    cursor: pointer;
+    transition: color var(--mo-cursor) var(--mo-ease), border-color var(--mo-cursor) var(--mo-ease);
+  }
+  .spk-nav-toggle:hover { color: var(--ink); border-color: var(--uv); }
+
+  /* Compacta: a linha da marca vira coluna (em 64px não cabem marca e botão lado
+     a lado), os itens centram o ícone, e todo texto some. */
+  .spk-app--compacta .spk-nav-topo { flex-direction: column; gap: var(--s-3); padding: var(--s-5) var(--s-3); }
+  .spk-app--compacta .spk-nav-toggle { margin-left: 0; }
+  /* ── Compacta: o realce sai do ITEM e vai para o ÍCONE ──────────────────────
+     O azul do ativo era pintado em `.spk-navi`, que ocupa a largura inteira da
+     barra — 44px de largura por 31 de altura, ou seja, um retângulo deitado em
+     volta de um ícone de 15px. Parecia esticado porque estava.
+
+     O item continua com a largura toda, de propósito, por duas razões: é o que
+     mantém o fio do ativo ancorado na BORDA da sidebar, e é o que dá área de
+     clique de 51×46px em vez de só os 38 do quadrado — alvo pequeno numa barra
+     estreita é onde o clique erra. O que muda é ONDE o azul é pintado.
+
+     (51 é medido: 64 da barra, menos 1 da borda direita, menos 2×6 de respiro
+     da lista. Escrevi 64 aqui na primeira versão e a medição me desmentiu.)   */
+  .spk-app--compacta .spk-navi { justify-content: center; padding: var(--s-1) var(--s-3); }
+  .spk-app--compacta .spk-navi__i {
+    width: 38px; height: 38px;
+    border-radius: var(--r-md);
+    transition: background-color var(--mo-cursor) var(--mo-ease),
+                box-shadow var(--mo-cursor) var(--mo-ease);
+  }
+  /* O item para de pintar a si mesmo, senão o realce sairia duplicado. */
+  .spk-app--compacta .spk-navi:hover,
+  .spk-app--compacta .spk-navi[aria-current="page"] { background: none; box-shadow: none; }
+  .spk-app--compacta .spk-navi:hover .spk-navi__i {
+    background: color-mix(in srgb, var(--uv) 13%, transparent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--uv) 20%, transparent);
+  }
+  .spk-app--compacta .spk-navi[aria-current="page"] .spk-navi__i {
+    /* 135° e não 90°: num quadrado, gradiente horizontal lê como listra; na
+       diagonal ele lê como volume, que é o que o card do portal faz. */
+    background: linear-gradient(135deg,
+      color-mix(in srgb, var(--uv) 26%, transparent),
+      color-mix(in srgb, var(--uv) 7%, transparent));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--uv) 30%, transparent);
+  }
+  .spk-app--compacta .spk-navi__c { display: none; }
+  .spk-app--compacta .spk-nav-pe { padding: var(--s-3); }
+  .spk-app--compacta .spk-icbtn { padding: var(--s-3) 0; }
+  .spk-app--compacta .spk-nav-user { justify-content: center; }
+  /* O fio usa o MESMO offset nos dois modos. Ele é posicionado a partir do
+     item, e o item tem largura cheia nos dois — então a conta não muda, e um
+     número só é mais fácil de manter certo que dois. */
+
+  /* O resto da casca da navegação. */
+  /* A lista de itens. O respiro lateral encolhe quando compacta: com os 10px de
+     antes o item ficava com 43px numa barra de 64, e o alvo de clique é o que a
+     barra estreita tem de menos. */
+  .spk-nav-lista { flex: 1; overflow-y: auto; padding: var(--s-5) var(--s-4); }
+  .spk-app--compacta .spk-nav-lista { padding: var(--s-5) var(--s-2); }
+
+  .spk-nav-topo { display: flex; align-items: center; gap: var(--s-4); padding: var(--s-7) var(--s-7) var(--s-6); border-bottom: 1px solid var(--rule); }
+  .spk-nav-marca { font-size: var(--t-lead); font-weight: var(--w-semi); color: var(--ink); letter-spacing: -.01em; }
+  .spk-nav-sub { font-size: var(--t-meta); color: var(--ink-mute); }
+  .spk-nav-pe { border-top: 1px solid var(--rule); padding: var(--s-5); }
+  .spk-nav-user { display: flex; align-items: center; gap: var(--s-3); margin-top: var(--s-5); }
+  .spk-nav-user__c { min-width: 0; flex: 1; line-height: 1.2; }
+  .spk-nav-user__n {
+    font-size: var(--t-meta); color: var(--ink-mute); text-transform: capitalize;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  /* A bolinha do Atualizar: verde parada, âmbar PULSANDO enquanto sincroniza.
+     Antes ela só trocava de cor — e cor sozinha não diz "está acontecendo
+     agora", diz "está num estado". Movimento é que diz agora. */
+  .spk-pulso { width: 7px; height: 7px; flex: none; border-radius: var(--r-pill); background: var(--ok); }
+  .spk-pulso[data-carregando] { background: var(--amber); animation: spk-pulsa 1.2s ease-in-out infinite; }
+  @keyframes spk-pulsa {
+    0%, 100% { opacity: 1;  box-shadow: 0 0 0 0 color-mix(in srgb, var(--amber) 55%, transparent); }
+    50%      { opacity: .6; box-shadow: 0 0 0 4px color-mix(in srgb, var(--amber) 0%, transparent); }
+  }
+
+  /* ── Diálogo em camada ──────────────────────────────────────────────────────
+     O defeito que isto conserta: a camada de fora é que rolava (`overflow:auto`
+     no `inset: 0`) e o painel não tinha altura máxima. Descer o conteúdo levava
+     o CABEÇALHO junto para fora da tela — e com ele o botão Fechar. Quem abria
+     uma régua longa ficava sem saída visível, e a única forma de fechar era
+     rolar de volta até o topo ou clicar no fundo, que ninguém adivinha.
+
+     O certo é o painel ser uma coluna com teto: cabeçalho fixo, corpo rolando
+     por dentro. `100dvh` e não `100vh` porque no celular a barra do navegador
+     entra e sai, e `vh` não acompanha — o rodapé do painel ficaria debaixo dela. */
+  .spk-modal {
+    position: fixed; inset: 0; z-index: 50;
+    display: grid; place-items: center;
+    padding: var(--s-6);
+    background: color-mix(in srgb, #000 62%, transparent);
+    backdrop-filter: blur(3px);
+    -webkit-backdrop-filter: blur(3px);
+    /* A camada NÃO rola. Quem rola é o corpo do painel. */
+    overflow: hidden;
+  }
+  .spk-modal__painel {
+    display: flex; flex-direction: column;
+    width: 100%; max-width: 1100px;
+    max-height: calc(100dvh - var(--s-6) * 2);
+    min-height: 0;
+    border: 1px solid var(--rule-strong);
+    border-radius: var(--r-lg);
+    background: linear-gradient(180deg, var(--bg-soft), var(--bg-paper));
+    box-shadow: var(--sh-pop);
+    overflow: hidden;
+    animation: spk-modal-entra var(--mo-object) var(--mo-ease) both;
+  }
+  .spk-modal__topo {
+    flex: none;
+    display: flex; align-items: flex-start; justify-content: space-between;
+    gap: var(--s-4);
+    padding: var(--s-6) var(--s-7);
+    border-bottom: 1px solid var(--rule);
+  }
+  .spk-modal__corpo {
+    flex: 1 1 auto; min-height: 0;
+    overflow-y: auto;
+    padding: var(--s-7);
+  }
+  /* Painel que NÃO se dividiu em topo+corpo ainda ganha teto e rolagem própria.
+     É o que conserta os seis diálogos do app de uma vez, trocando só a camada
+     de fora em cada um: sem isto, conteúdo alto estoura a janela e o botão de
+     confirmar fica inalcançável — no `EdicaoLead` isso é o botão de SALVAR. */
+  /* O RODAPÉ do diálogo fica FORA do corpo que rola. Foi o defeito de 24/09 nos
+     seis diálogos: com tudo numa camada só, o formulário longo empurrava o botão
+     de confirmar para fora da tela — e ali era o de SALVAR. */
+  .spk-modal__pe {
+    display: flex; justify-content: flex-end; gap: var(--s-3);
+    padding: var(--s-5) var(--s-6);
+    border-top: 1px solid var(--rule);
+    flex: none;
+  }
+
+  .spk-modal > *:not(.spk-modal__painel) {
+    max-height: calc(100dvh - var(--s-6) * 2);
+    overflow-y: auto;
+    border-radius: var(--r-lg);
+  }
+
+  @keyframes spk-modal-entra {
+    from { opacity: 0; transform: translateY(8px) scale(.985); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  /* ── Fundo ambiente ─────────────────────────────────────────────────────────
+     A atmosfera do portal, em CSS puro: zero JS, zero canvas, zero
+     requestAnimationFrame. Um elemento e dois pseudos.
+
+     HONESTIDADE: não fica idêntico ao shader Prism do portal. Lê como
+     "atmosfera", não como "veios de luz". A troca é 0 JS e 0 frame — e num
+     painel que fica aberto o dia inteiro ao lado de um polling, essa é a troca
+     certa.
+
+     A MÁSCARA é o que faz funcionar, e é copiada literal do `.pa-amb`: três
+     paradas, não duas. Com duas o efeito TERMINA numa borda visível; com a
+     parada do meio em 52% ele DISSOLVE, e é a dissolução que parece ambiente
+     em vez de "div colorida no topo".                                          */
+  .spk-amb {
+    position: absolute; top: 0; left: 0; right: 0; height: 660px;
+    z-index: 0; pointer-events: none; overflow: hidden; opacity: .82;
+    /* `contain: paint` promete ao navegador que nada pinta fora daqui — sem
+       isso o blur de 46px vira área de repintura do documento inteiro. */
+    contain: paint;
+    -webkit-mask: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, .5) 52%, transparent 88%);
+            mask: linear-gradient(180deg, #000 0%, rgba(0, 0, 0, .5) 52%, transparent 88%);
+  }
+  .spk-amb::before {
+    content: ""; position: absolute; inset: -10%;
+    background:
+      radial-gradient(42% 52% at 18% 8%,  color-mix(in srgb, var(--crimson) 22%, transparent), transparent 70%),
+      radial-gradient(38% 46% at 72% 0%,  color-mix(in srgb, var(--navy) 16%, transparent),    transparent 72%),
+      radial-gradient(46% 40% at 50% 26%, color-mix(in srgb, var(--plum) 10%, transparent),    transparent 74%);
+    filter: blur(46px);
+    transform: scale(1.06);
+    /* 48s, e SÓ `transform` — composição pura, sem repintura. Animar
+       `background-position` aqui repintaria 660px de blur a cada frame. */
+    animation: spk-deriva 48s ease-in-out infinite alternate;
+    will-change: transform;
+  }
+  /* O grão. `feTurbulence` rasterizado UMA vez como data-URI (~260 bytes) — é o
+     equivalente honesto do `noise` do portal, sem um filtro SVG vivo no
+     documento. A máscara radial tira o grão das bordas, onde ele só suja. */
+  .spk-amb::after {
+    content: ""; position: absolute; inset: 0; opacity: .035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    -webkit-mask: radial-gradient(70% 60% at 50% 0%, #000, transparent 75%);
+            mask: radial-gradient(70% 60% at 50% 0%, #000, transparent 75%);
+  }
+  @keyframes spk-deriva {
+    from { transform: scale(1.06) translate3d(0, 0, 0); }
+    to   { transform: scale(1.1) translate3d(-1.5%, 1.2%, 0); }
+  }
+
+  /* O palco: quem hospeda o ambiente. O conteúdo sobe para z-index 1 SEM
+     precisar de um wrapper novo no JSX — `:not(.spk-amb)` alcança os irmãos. */
+  .spk-palco { position: relative; min-width: 0; }
+  .spk-palco > *:not(.spk-amb) { position: relative; z-index: 1; }
+
+  /* ── Tela (a casca) ─────────────────────────────────────────────────────────
+     `min-width: 0` é o conserto de um grid blowout LATENTE: sem ele um filho de
+     grid/flex recusa encolher abaixo do conteúdo, e a tabela do Funil empurra a
+     página inteira para fora da janela em vez de rolar dentro de si.            */
+  .spk-tela { position: relative; min-width: 0; width: 100%; }
+  .spk-tela--estreita { max-width: 880px; }
+  .spk-tela--media    { max-width: 1180px; }
+  .spk-tela__h { margin-bottom: var(--s-7); }
+  .spk-tela__t { font-size: var(--t-title); font-weight: var(--w-semi); letter-spacing: var(--track-display); color: var(--ink); }
+  .spk-tela__s { margin-top: var(--s-2); font-size: var(--t-dense); color: var(--ink-mute); line-height: var(--lh-body); max-width: 66ch; }
+
+  @keyframes spk-entrar { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  .spk-entrar { animation: spk-entrar var(--mo-object) var(--mo-ease) both; }
+}

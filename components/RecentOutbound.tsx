@@ -5,7 +5,7 @@ export function RecentOutbound({ rows }: { rows: OutboundRow[] }) {
   return (
     <div className="paper overflow-hidden">
       <div className="flex items-baseline justify-between p-6 pb-4">
-        <h3 className="font-display text-xl">Atividade recente · RD → Beehiiv</h3>
+        <h3 className="nw-painel-t">Atividade recente · RD → Beehiiv</h3>
         <span className="font-mono-tag">últimos {rows.length} envios</span>
       </div>
       {rows.length === 0 ? (

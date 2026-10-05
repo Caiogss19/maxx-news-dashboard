@@ -3,6 +3,7 @@ import type { LeadJourney } from "@/lib/analytics";
 import { KPI } from "@/components/KPI";
 import { RDLink } from "@/components/RDLink";
 import { fmtPct, fmtNum, fmtDate, fmtDateTime, truncate, categoryColor } from "@/lib/format";
+import { Inbox, MailOpen, MousePointerClick, Pointer } from "lucide-react";
 
 /** Latência de scanner vem em segundos e quase sempre abaixo de 10 min. */
 function fmtLatencia(s: number | null): string {
@@ -47,7 +48,7 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
         <p className="text-ink-mute">
           Nenhum lead encontrado para <span className="font-mono text-ink">{email}</span>.
         </p>
-        <Link href="/leads" className="inline-block mt-4 text-sm font-mono uppercase tracking-wider text-ink hover:underline">
+        <Link href="/leads" className="spk-btn spk-btn--fantasma spk-btn--pequeno mt-4">
           ← Voltar ao diretório
         </Link>
       </div>
@@ -59,7 +60,7 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <div className="font-mono-tag mb-1">Jornada do lead</div>
-          <div className="font-display text-2xl">{lead.email}</div>
+          <div className="nw-secao__t" style={{ fontSize: "var(--t-display)" }}>{lead.email}</div>
           {/*
             A empresa que a pessoa DIGITOU no formulário. Fica junto do e-mail
             porque é identidade, não análise — e porque é o único lugar da ficha
@@ -92,7 +93,7 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
             <span className="text-xs font-mono px-3 py-1 rounded-full bg-amber-soft text-amber">pendente</span>
           )}
           <RDLink email={lead.email} variant="button" />
-          <Link href="/leads" className="text-sm font-mono uppercase tracking-wider text-ink-mute hover:text-ink">
+          <Link href="/leads" className="spk-btn spk-btn--fantasma spk-btn--pequeno">
             ← Diretório
           </Link>
         </div>
@@ -106,7 +107,7 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
           style={{ borderLeft: "3px solid var(--amber)" }}
         >
           <div className="flex items-baseline justify-between flex-wrap gap-2 mb-2">
-            <h3 className="font-display text-lg">
+            <h3 className="nw-painel-t">
               Os números deste contato não medem interesse
             </h3>
             <span className="font-mono-tag">motivo: {scanner.motivo}</span>
@@ -161,7 +162,7 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
       {cliente && (
         <div className="paper p-5" style={{ borderLeft: "3px solid var(--crimson)" }}>
           <div className="flex items-baseline justify-between flex-wrap gap-2">
-            <h3 className="font-display text-lg">
+            <h3 className="nw-painel-t">
               {cliente.company_name}
               {cliente.contract_status === "active_contract" ? (
                 <span className="ml-2 text-xs font-mono px-2 py-0.5 rounded-full bg-olive-soft text-olive align-middle">
@@ -201,17 +202,17 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <KPI label="Edições recebidas" value={lead.editions_received} accent="navy" />
-        <KPI label="Edições abertas" value={lead.editions_opened} accent="olive" hint={`${fmtPct(lead.open_rate)} de abertura`} />
-        <KPI label="Edições com clique" value={lead.editions_clicked} accent="amber" />
-        <KPI label="Cliques totais" value={lead.total_clicks} accent="plum" hint={`${lead.total_opens} aberturas no total`} />
+        <KPI label="Edições recebidas" icon={<Inbox />} value={lead.editions_received} accent="navy" />
+        <KPI label="Edições abertas" icon={<MailOpen />} value={lead.editions_opened} accent="olive" hint={`${fmtPct(lead.open_rate)} de abertura`} />
+        <KPI label="Edições com clique" icon={<MousePointerClick />} value={lead.editions_clicked} accent="amber" />
+        <KPI label="Cliques totais" icon={<Pointer />} value={lead.total_clicks} accent="plum" hint={`${lead.total_opens} aberturas no total`} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Edições recebidas */}
         <div className="paper overflow-hidden">
           <div className="flex items-baseline justify-between p-6 pb-4">
-            <h3 className="font-display text-xl">Edições recebidas</h3>
+            <h3 className="nw-painel-t">Edições recebidas</h3>
             <span className="font-mono-tag">{perEdition.length}</span>
           </div>
           {perEdition.length === 0 ? (
@@ -251,17 +252,20 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
         {/* Linha do tempo */}
         <div className="paper p-6">
           <div className="flex items-baseline justify-between mb-5">
-            <h3 className="font-display text-xl">Linha do tempo</h3>
+            <h3 className="nw-painel-t">Linha do tempo</h3>
             <span className="font-mono-tag">{timeline.length} eventos</span>
           </div>
           {timeline.length === 0 ? (
             <p className="text-ink-faint text-sm py-10 text-center">Sem eventos.</p>
           ) : (
-            <ol className="relative border-l border-rule ml-2 space-y-4 max-h-[460px] overflow-y-auto pr-2">
+            <ol className="max-h-[460px] overflow-y-auto pr-2 pl-[6px] ml-1">
+              {/* O fio é a borda de cada item, e a lista tem 6px de respiro à
+                  esquerda: o ponto fica 5px PARA FORA do item, e a lista rola
+                  (`overflow-y-auto`) — sem o respiro ele saía cortado ao meio. */}
               {timeline.map((t, i) => (
-                <li key={i} className="ml-4">
+                <li key={i} className="relative pl-5 pb-4 last:pb-0 border-l border-rule">
                   <span
-                    className="absolute -left-[5px] w-2.5 h-2.5 rounded-full"
+                    className="absolute -left-[5px] top-[6px] w-2.5 h-2.5 rounded-[3px]"
                     style={{ background: KIND_COLOR[t.kind] ?? "var(--ink-mute)" }}
                     aria-hidden
                   />
@@ -281,7 +285,7 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
           sincronizado — o agregado sabe que houve clique, mas não em quê. */}
       <div className="paper overflow-hidden">
         <div className="flex items-baseline justify-between p-6 pb-4">
-          <h3 className="font-display text-xl">Links que clicou</h3>
+          <h3 className="nw-painel-t">Links que clicou</h3>
           <span className="font-mono-tag">
             {cliques.length > 0
               ? `${cliques.length} ${cliques.length === 1 ? "link" : "links"}`
@@ -361,7 +365,7 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
           {categorias.length > 0 && (
             <div className="paper p-6">
               <div className="flex items-baseline justify-between mb-5">
-                <h3 className="font-display text-xl">Que conteúdo puxa este lead</h3>
+                <h3 className="nw-painel-t">Que conteúdo puxa este lead</h3>
                 <span className="font-mono-tag">{totalCategoria} cliques</span>
               </div>
               <div className="space-y-3">
@@ -402,7 +406,7 @@ export function LeadJourneyView({ email, journey }: { email: string; journey: Le
           {empresa && (
             <div className="paper overflow-hidden">
               <div className="flex items-baseline justify-between p-6 pb-4">
-                <h3 className="font-display text-xl">Mais gente de {empresa.dominio}</h3>
+                <h3 className="nw-painel-t">Mais gente de {empresa.dominio}</h3>
                 <span className="font-mono-tag">
                   {empresa.contatos} {empresa.contatos === 1 ? "contato" : "contatos"}
                   {empresa.humanos !== empresa.contatos

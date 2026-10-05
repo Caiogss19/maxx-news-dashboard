@@ -77,7 +77,7 @@ export function EmailClickMap({
   return (
     <div className="paper overflow-hidden">
       <div className="panel-head">
-        <h3 className="font-display" style={{ fontSize: 17, fontWeight: 500 }}>
+        <h3 className="nw-painel-t">
           Mapa de cliques
         </h3>
         <span className="font-mono-tag">

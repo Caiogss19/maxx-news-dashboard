@@ -1,194 +1,300 @@
+/* Os @import vêm primeiro (o `postcss-import` exige). As duas cópias da Central
+   declaram `@layer components`, que o Tailwind encaixa no `@tailwind components`
+   abaixo — ou seja, ANTES das utilities, como lá: `className="mb-4"` num card
+   sempre vence. */
+@import "./styles/spk-tokens.css";
+@import "./styles/spk.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Maxx News — sistema visual "Spark Maxx Media Intel", sóbrio.
-   Mesmo sistema da Central de Leads: base fria (quase-preta) + acento laranja
-   Spark. Tipografia limpa (Inter), sem serifa nem rótulos em caixa-alta pesada.
-   Cor só onde tem significado.
+   Maxx News — a identidade visual da Central de Leads, copiada (via Mailing).
+
+   `styles/spk-tokens.css` e `styles/spk.css` vêm da Central SEM edição. A
+   paleta abaixo é a do `index.css` da Central, valor por valor, menos o
+   destaque. Mudou lá, traga para cá — não divirja aqui.
+
+   Os PAPÉIS das cores são os da Central; os VALORES de destaque divergem de
+   propósito (pedido de 05/10/2026: cor própria, como o Conversas fez com o
+   verde e o Mailing com o violeta). A cor é o ouro que o portal já usa no card
+   do Maxx News (#F5B800), para quem abre pelo portal reconhecer o app:
+   · `--uv` é MOLDURA: navegação, foco, link. Aqui champanhe.
+   · `--crimson` é o DADO e a marca. Aqui ouro. O nome ficou `crimson` porque os
+     `spk-*` copiados da Central leem esse nome.
+   · verde / vermelho / laranja continuam só ESTADO.
+
+   ⚠️ O âmbar de estado SAIU do amarelo. Na Central o aviso é #f5b301 — aqui
+   seria a mesma cor da marca, e "precisa de atenção" ficaria indistinguível de
+   "é da news". O aviso virou laranja (#FB8C3C), longe o bastante do ouro em
+   matiz (≈25° contra ≈45°) para não depender só de luminosidade.
    ───────────────────────────────────────────────────────────────────────────── */
 :root {
-  --bg:        #0B0D10;
-  --bg-paper:  #14171B;
-  --bg-soft:   #1C2025;
-  --ink:       #ECEDE9;
-  --ink-mute:  #9CA0A0;
-  --ink-faint: #6C7075;
-  --rule:        #22262B;
-  --rule-strong: #30353B;
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
 
-  /* Acento da marca = laranja Spark. Cores semânticas só p/ estado. */
-  --crimson: #FF6B35; --crimson-soft: #2A1710;   /* acento/marca (laranja) */
-  --amber:   #F5B63F; --amber-soft:   #2E2410;   /* atenção */
-  --olive:   #3CCB7F; --olive-soft:   #0F2A1E;   /* ok/saudável (verde) */
-  --navy:    #5B9BD5; --navy-soft:    #12233A;   /* info */
-  --plum:    #B892C0; --plum-soft:    #241A2A;
-  --danger:  #FF5C6E; --danger-soft:  #2E1418;   /* erro/crítico (vermelho) */
+  --bg:        #000000;
+  --bg-paper:  #0b0b11;
+  --bg-soft:   #101017;
+  --ink:       #eef1f7;
+  --ink-mute:  #8f97aa;
+  --ink-faint: #5c6474;
+  --rule:        #22232b;
+  --rule-strong: #31323c;
+
+  --uv:  #F2D488;   /* moldura: champanhe (na Central: azul #6ea8fe) */
+  --uv2: #F8E6B8;
+  --uv-soft: #221B09;
+
+  --crimson: #F5B800; --crimson-soft: #2A2003;   /* dado/marca: ouro (na Central: laranja #FF6B35) */
+
+  --amber:   #FB8C3C; --amber-soft:   #2A1608;   /* aviso: laranja (na Central: #f5b301 — ver acima) */
+  --olive:   #34d399; --olive-soft:   #06251b;
+  --danger:  #f87171; --danger-soft:  #2a1214;
+
+  --navy:    var(--uv); --navy-soft: var(--uv-soft);
+  --plum:    #b49bff; --plum-soft:   #1b1630;
 
   --accent: var(--crimson);
   --ok:     var(--olive);
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
-
-html, body {
-  background: var(--bg);
-  color: var(--ink);
-  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
-  font-size: 15px;
-  line-height: 1.55;
-  -webkit-font-smoothing: antialiased;
-  text-rendering: optimizeLegibility;
+/* O reset na camada `base`, como o preflight: os `spk-*` precisam ganhar dele. */
+@layer base {
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { color-scheme: dark; }
+  body {
+    -webkit-font-smoothing: antialiased;
+    background-color: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: var(--lh-body);
+    text-rendering: optimizeLegibility;
+  }
+  a { color: inherit; text-decoration: none; }
+  ::selection { background: var(--crimson); color: var(--bg); }
+  * { scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
+  *::-webkit-scrollbar { width: 8px; height: 8px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 4px; }
+  *::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
 }
 
-html { color-scheme: dark; }
+/* ── A casca (o que no Mailing é `.cv-*`) ──────────────────────────────────── */
+.nw-coluna { min-height: 100vh; display: flex; flex-direction: column; }
+.nw-main { flex: 1; width: 100%; max-width: 1240px; margin: 0 auto; padding: var(--s-8) var(--s-9) var(--s-9); min-width: 0; }
+@media (max-width: 720px) { .nw-main { padding: var(--s-6) var(--s-6) var(--s-8); } }
 
-::selection { background: var(--accent); color: #fff; }
+.nw-topo__id { display: flex; align-items: center; gap: var(--s-5); min-width: 0; }
+.nw-topo__ic {
+  width: 34px; height: 34px; flex: none; display: grid; place-items: center;
+  border-radius: var(--r-md); color: var(--crimson);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--crimson) 22%, transparent), color-mix(in srgb, var(--crimson) 6%, transparent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--crimson) 30%, transparent);
+}
+.nw-topo__txt { min-width: 0; }
+.nw-topo__txt .spk-topo__s { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* ── Tipografia ───────────────────────────────────────────────────────────────
-   "display" é só Inter com tabular-nums (números grandes limpos). A ênfase que
-   antes era serifa itálica virou peso + cor de acento. */
-.font-display {
-  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.01em;
+.nw-rodape {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: var(--s-4);
+  padding: var(--s-5) var(--s-9); border-top: 1px solid var(--rule);
+  font-size: var(--t-dense); color: var(--ink-mute);
 }
-.font-display-em { font-weight: 600; color: var(--accent); }
-.num-display {
-  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
-  font-variant-numeric: tabular-nums;
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  line-height: 1;
+.nw-rodape small { font-size: var(--t-micro); color: var(--ink-faint); }
+.nw-rodape code { font: var(--t-micro) var(--font-mono); color: var(--ink-faint); }
+
+/* O ao vivo, no topo: a bolinha verde pulsa sempre (o canal está aberto). */
+.nw-vivo { display: inline-flex; align-items: center; gap: var(--s-3); font-size: var(--t-dense); color: var(--ink-mute); white-space: nowrap; }
+.nw-vivo__n { color: var(--ink); }
+.nw-vivo__n small { color: var(--ink-faint); font-size: var(--t-meta); }
+
+/* ── Cabeçalho de seção (o hero de cada aba) ───────────────────────────────── */
+.nw-secao { padding-bottom: var(--s-9); }
+.nw-secao__h { margin-bottom: var(--s-8); }
+.nw-secao__t {
+  font-size: var(--t-hero); font-weight: var(--w-semi); line-height: var(--lh-tight);
+  letter-spacing: var(--track-display); color: var(--ink); max-width: 28ch;
 }
+.nw-secao__t em, .font-display-em { font-style: normal; color: var(--crimson); }
+.nw-secao__s { margin-top: var(--s-4); font-size: var(--t-lead); color: var(--ink-mute); line-height: var(--lh-body); max-width: 70ch; }
+
+/* ── KPI em card ───────────────────────────────────────────────────────────── */
+.nw-kpi { gap: var(--s-4); padding: var(--s-6) var(--s-7) var(--s-7); }
+.nw-kpi__topo { display: flex; align-items: center; gap: var(--s-3); min-width: 0; }
+.nw-kpi__i {
+  width: 26px; height: 26px; flex: none; display: grid; place-items: center;
+  border-radius: var(--r-sm); color: var(--ac);
+  background: color-mix(in srgb, var(--ac) 12%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ac) 22%, transparent);
+}
+.nw-kpi__i > svg { width: 14px; height: 14px; }
+.nw-kpi__r { font-size: var(--t-dense); font-weight: var(--w-book); color: var(--ink-mute); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nw-kpi__v {
+  display: flex; align-items: baseline; gap: var(--s-2);
+  font-size: clamp(26px, 2.4vw, 32px); font-weight: var(--w-semi);
+  letter-spacing: var(--track-display); line-height: var(--lh-tight);
+  font-variant-numeric: tabular-nums; min-width: 0; overflow-wrap: anywhere;
+}
+.nw-kpi__v small { font-size: var(--t-body); font-weight: var(--w-regular); color: var(--ink-mute); letter-spacing: 0; }
+.nw-kpi__s { font-size: var(--t-meta); color: var(--ink-faint); line-height: var(--lh-snug); }
+
+/* Faixa de KPIs num card só, separada por régua (o topo da Central). */
+.nw-faixa { padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr)); }
+.nw-faixa > .nw-faixa__i { padding: var(--s-6) var(--s-7); border-right: 1px solid var(--rule); border-bottom: 1px solid var(--rule); margin: 0 -1px -1px 0; display: flex; flex-direction: column; gap: var(--s-3); }
+
+/* Entrada em cascata: o card N chega 40ms depois do N-1. Só `animation-delay`;
+   a animação é a `spk-entrar` da Central, que o bloco de reduced-motion zera. */
+.spk-entrar:nth-child(2) { animation-delay: 40ms; }
+.spk-entrar:nth-child(3) { animation-delay: 80ms; }
+.spk-entrar:nth-child(4) { animation-delay: 120ms; }
+.spk-entrar:nth-child(5) { animation-delay: 160ms; }
+.spk-entrar:nth-child(6) { animation-delay: 200ms; }
+
+/* ── O vocabulário antigo das telas, redesenhado no lugar ──────────────────────
+   As telas usam `.paper`, `.panel-head`, `table.editorial`, `.pill` e
+   `.bar-*` em ~20 arquivos. Em vez de reescrever cada uma, as classes passam a
+   desenhar o primitivo equivalente da Central — a tela muda inteira de uma vez,
+   e quem reescrever uma tela depois troca pela classe `spk-*` sem pressa. */
+
+/* `.paper` = `.spk-card`, sem a borda-gradiente: o `::after` dela exige que os
+   filhos subam de camada, e aqui há tabela e gráfico com posição própria. */
+.paper {
+  position: relative;
+  background: linear-gradient(180deg, var(--bg-soft), var(--bg-paper));
+  border: 1px solid var(--rule);
+  border-radius: var(--r-lg);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, .05),
+    inset 0 34px 58px -34px color-mix(in srgb, var(--uv) 14%, transparent),
+    0 16px 38px -16px rgba(0, 0, 0, .55);
+  overflow: hidden;
+}
+/* O card que é link (lista de clientes, edições): levanta, como `.spk-card--int`. */
+a.paper, .paper.nw-int {
+  display: block;
+  transition: transform var(--mo-object) var(--mo-ease), border-color var(--mo-object) var(--mo-ease), box-shadow var(--mo-object) var(--mo-ease);
+}
+a.paper:hover, .paper.nw-int:hover {
+  transform: translateY(var(--lift-3));
+  border-color: color-mix(in srgb, var(--crimson) 45%, var(--rule));
+  color: inherit;
+}
+
+.panel-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--s-5);
+  padding: var(--s-5) var(--s-7);
+  border-bottom: 1px solid var(--rule);
+}
+.nw-painel-t, .panel-head h3 {
+  display: flex; align-items: center; gap: var(--s-4);
+  font-size: var(--t-lead); font-weight: var(--w-semi); color: var(--ink); letter-spacing: -.01em;
+}
+.nw-painel-t::before, .panel-head h3::before {
+  content: ""; width: 9px; height: 9px; flex: none; border-radius: 3px;
+  background: var(--crimson); box-shadow: 0 0 12px color-mix(in srgb, var(--crimson) 70%, transparent);
+}
+
+/* Rótulo: Inter 450 apagado. Mono só para número — a regra da Central. */
 .font-mono-tag {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-size: 11px;
-  letter-spacing: 0.02em;
+  font-family: var(--font-sans);
+  font-size: var(--t-meta);
+  font-weight: var(--w-book);
+  letter-spacing: 0;
   color: var(--ink-mute);
 }
-
-/* ── Acentos editoriais ───────────────────────────────────────────────────── */
+/* O antigo traço de 22px virou o ponto quadrado do `Cabecalho`. */
 .accent-line {
-  display: inline-block;
-  width: 22px;
-  height: 2px;
-  background: var(--accent);
-  vertical-align: middle;
-  margin-right: 10px;
+  display: inline-block; width: 9px; height: 9px; border-radius: 3px; flex: none;
+  background: var(--crimson); box-shadow: 0 0 12px color-mix(in srgb, var(--crimson) 70%, transparent);
+  vertical-align: middle; margin-right: var(--s-4);
 }
+
+.font-display { font-family: var(--font-sans); font-variant-numeric: tabular-nums; letter-spacing: var(--track-display); }
+.num-display { font-family: var(--font-sans); font-variant-numeric: tabular-nums; font-weight: var(--w-semi); letter-spacing: var(--track-display); line-height: 1; }
 
 .live-dot {
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--ok);
-  margin-right: 6px;
-  vertical-align: middle;
-  animation: pulse 2s ease-in-out infinite;
+  display: inline-block; width: 7px; height: 7px; border-radius: var(--r-pill);
+  background: var(--ok); vertical-align: middle;
+  animation: nw-vivo 2s ease-in-out infinite;
+}
+@keyframes nw-vivo {
+  0%, 100% { opacity: 1;  box-shadow: 0 0 0 0 color-mix(in srgb, var(--ok) 55%, transparent); }
+  50%      { opacity: .6; box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 0%, transparent); }
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 var(--ok); }
-  50% { opacity: 0.6; box-shadow: 0 0 0 4px transparent; }
-}
-
-/* ── Painel ───────────────────────────────────────────────────────────────── */
-.paper {
-  background: var(--bg-paper);
-  border: 1px solid var(--rule);
-  border-radius: 0;
-}
-
-/* Cabeçalho de painel com régua embaixo, como na Central de Leads. */
-.panel-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  padding: 16px 20px;
-  border-bottom: 1px solid var(--rule);
-  gap: 12px;
-}
-
-/* ── Tabela ───────────────────────────────────────────────────────────────── */
-table.editorial {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13.5px;
-}
+/* `table.editorial` = `.spk-tab`. */
+table.editorial { width: 100%; border-collapse: collapse; font-size: var(--t-dense); }
 table.editorial th {
-  font-size: 12px;
-  letter-spacing: 0.02em;
-  color: var(--ink-mute);
-  font-weight: 500;
-  text-align: left;
-  padding: 10px 16px;
-  border-bottom: 1px solid var(--rule);
-  background: var(--bg-soft);
-  white-space: nowrap;
+  text-align: left; font-size: var(--t-meta); font-weight: var(--w-book); color: var(--ink-mute);
+  padding: var(--s-4) var(--s-5); border-bottom: 1px solid var(--rule-strong); white-space: nowrap;
+  background: color-mix(in srgb, var(--bg) 35%, transparent);
 }
-table.editorial td {
-  padding: 11px 16px;
-  border-bottom: 1px solid var(--rule);
-  vertical-align: middle;
-}
+table.editorial td { padding: var(--s-4) var(--s-5); border-bottom: 1px solid var(--rule); vertical-align: middle; }
 table.editorial tr:last-child td { border-bottom: 0; }
-table.editorial tr:hover td { background: var(--bg-soft); }
+table.editorial tbody tr:hover td { background: color-mix(in srgb, var(--uv) 5%, transparent); }
+table.editorial td.num, table.editorial th.num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+/* O cabeçalho da coluna numérica alinha à direita, mas é rótulo: Inter, não mono. */
+table.editorial th.num { font-family: var(--font-sans); }
 
-/* Coluna numérica: tabular, alinhada à direita. */
-table.editorial td.num, table.editorial th.num {
-  font-family: 'JetBrains Mono', ui-monospace, monospace;
-  font-variant-numeric: tabular-nums;
-  text-align: right;
-  white-space: nowrap;
-}
+/* `.bar-*` = `.spk-barra`. A cor de preenchimento continua vindo inline. */
+.bar-track { position: relative; height: 5px; border-radius: var(--r-pill); background: var(--bg-soft); overflow: hidden; box-shadow: inset 0 0 0 1px var(--rule); }
+.bar-fill { height: 100%; border-radius: inherit; background: var(--crimson); transition: width .6s var(--mo-ease); }
 
-/* ── Barra inline ─────────────────────────────────────────────────────────── */
-.bar-track {
-  background: var(--bg-soft);
-  height: 6px;
-  border-radius: 999px;
-  overflow: hidden;
-  position: relative;
-}
-.bar-fill {
-  height: 100%;
-  border-radius: 999px;
-  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* ── Pill / badge ─────────────────────────────────────────────────────────── */
+/* `.pill` = `.spk-chip`. */
 .pill {
-  display: inline-block;
-  font-size: 11px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1px solid var(--rule-strong);
-  color: var(--ink-mute);
-  white-space: nowrap;
+  display: inline-flex; align-items: center; gap: var(--s-2);
+  padding: 2px var(--s-3);
+  border: 1px solid var(--rule-strong); border-radius: var(--r-pill);
+  background: var(--bg-soft); color: var(--ink-mute);
+  font-size: var(--t-micro); font-weight: var(--w-medium); line-height: var(--lh-snug); white-space: nowrap;
 }
-.pill-on { border-color: var(--accent); color: var(--accent); }
+.pill-on { border-color: color-mix(in srgb, var(--crimson) 40%, transparent); background: var(--crimson-soft); color: var(--crimson); }
 
-/* ── Entrada animada ──────────────────────────────────────────────────────── */
-@keyframes fadeUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
+.fade-up { animation: spk-entrar var(--mo-object) var(--mo-ease) both; }
+@media (prefers-reduced-motion: reduce) { .fade-up, .live-dot { animation: none; } }
+
+/* O campo de busca, no desenho do `.cv-campo` do Mailing, com a lupa dentro. */
+.nw-busca {
+  position: relative; flex: 1; display: flex; align-items: center; min-width: 0;
 }
-.fade-up { animation: fadeUp 0.5s ease forwards; }
+.nw-busca svg { position: absolute; left: var(--s-5); color: var(--ink-faint); pointer-events: none; }
+.nw-busca input {
+  width: 100%; height: 36px; padding: 0 var(--s-5) 0 34px;
+  background: var(--bg-soft); border: 1px solid var(--rule); border-radius: var(--r-sm);
+  color: var(--ink); font-size: var(--t-body); outline: none;
+}
+.nw-busca input:hover { border-color: var(--rule-strong); }
+.nw-busca input:focus-visible { border-color: color-mix(in srgb, var(--uv) 55%, var(--rule)); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--uv) 14%, transparent); }
 
-/* ── Sóbrio/minimal ───────────────────────────────────────────────────────────
-   Neutraliza TODA caixa-alta espaçada app-wide — vira caixa normal e calma, sem
-   precisar editar cada componente. Rótulos que eram mono-uppercase passam a
-   Inter (mais limpo); números seguem mono. */
+/* ── Sem caixa alta ────────────────────────────────────────────────────────── */
 .uppercase { text-transform: none !important; letter-spacing: 0.005em !important; }
-.font-mono { font-variant-numeric: tabular-nums; }
-.font-mono.uppercase { font-family: 'Inter', ui-sans-serif, system-ui, sans-serif; }
+.font-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.font-mono.uppercase { font-family: var(--font-sans); }
 
-/* ── Scrollbar fina ───────────────────────────────────────────────────────── */
-* { scrollbar-width: thin; scrollbar-color: var(--rule-strong) transparent; }
-*::-webkit-scrollbar { width: 8px; height: 8px; }
-*::-webkit-scrollbar-track { background: transparent; }
-*::-webkit-scrollbar-thumb { background: var(--rule-strong); border-radius: 4px; }
-*::-webkit-scrollbar-thumb:hover { background: var(--ink-faint); }
+/* ── Celular ──────────────────────────────────────────────────────────────────
+   Igual ao Mailing: a barra lateral vira uma faixa no topo, com as abas
+   roláveis na horizontal (a cópia do `spk.css` não se edita). */
+@media (max-width: 720px) {
+  .spk-app, .spk-app--compacta { --nav-w: 0px; }
+  .spk-nav {
+    position: sticky; width: 100%; height: auto; flex-direction: row; align-items: center;
+    border-right: 0; border-bottom: 1px solid var(--rule); overflow-x: auto; transition: none;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(14px) saturate(140%); -webkit-backdrop-filter: blur(14px) saturate(140%);
+  }
+  .spk-nav-topo { padding: var(--s-3) var(--s-4); flex: none; border-bottom: 0; }
+  .spk-nav-id, .spk-nav-toggle, .spk-nav-pe, .spk-navi__s { display: none; }
+  .spk-nav-lista { display: flex; flex-direction: row; gap: var(--s-1); padding: var(--s-2); flex: none; overflow: visible; }
+  .spk-navi { white-space: nowrap; margin-bottom: 0; }
+  .spk-navi[aria-current="page"]::before { display: none; }
+  .spk-conteudo { margin-left: 0; }
+  .spk-topo { position: static; height: auto; padding: var(--s-5) var(--s-6); }
+  .nw-topo__txt .spk-topo__s { white-space: normal; }
+  .nw-rodape { padding: var(--s-5) var(--s-6); }
+  /* Em duas colunas de ~170px o rótulo não cabe numa linha: quebra em vez de cortar. */
+  .nw-kpi { padding: var(--s-5); gap: var(--s-3); }
+  .nw-kpi__topo { align-items: flex-start; }
+  .nw-kpi__r { white-space: normal; line-height: var(--lh-snug); }
+}

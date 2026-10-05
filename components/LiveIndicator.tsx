@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { RotateCw } from "lucide-react";
 import { createSupabaseClient } from "@/lib/supabase-client";
 
 export function LiveIndicator() {
@@ -41,22 +42,18 @@ export function LiveIndicator() {
   }, []);
 
   return (
-    <div className="inline-flex items-center gap-2 text-xs font-mono uppercase tracking-wider text-ink-mute">
+    <div className="nw-vivo">
       <span className="live-dot" />
-      <span>Live</span>
+      <span>Ao vivo</span>
       {count > 0 && (
-        <span className="text-ink">
+        <span className="nw-vivo__n">
           · {count} {count === 1 ? "novo evento" : "novos eventos"}
-          {last && <span className="text-ink-faint"> ({last})</span>}
+          {last && <small> ({last})</small>}
         </span>
       )}
       {count > 0 && (
-        <button
-          onClick={() => window.location.reload()}
-          className="ml-1 px-2 py-0.5 rounded-full border border-rule text-ink hover:bg-bg-soft transition"
-          type="button"
-        >
-          ↻ Atualizar
+        <button onClick={() => window.location.reload()} className="spk-btn spk-btn--pequeno" type="button">
+          <RotateCw /> Atualizar
         </button>
       )}
     </div>

@@ -8,6 +8,7 @@ import { KPI } from "@/components/KPI";
 import { RankTable } from "@/components/RankTable";
 import { MaxxnewsLeads } from "@/components/MaxxnewsLeads";
 import { fmtNum, fmtPct, fmtDate } from "@/lib/format";
+import { Megaphone, Target, Undo2, Upload, UserPlus } from "lucide-react";
 
 export const revalidate = 259200; // 3 dias — casado com o job de sync
 
@@ -67,13 +68,13 @@ export default async function Page() {
       >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <KPI
-            label="Import inicial"
+            label="Import inicial" icon={<Upload />}
             value={fmtNum(aq.importado.total)}
             accent="amber"
             hint={`migração inicial · ${fmtPct(importShare)} da base`}
           />
           <KPI
-            label="Aquisição desde então"
+            label="Aquisição desde então" icon={<UserPlus />}
             value={fmtNum(aq.vivo.total)}
             accent="olive"
             hint="100% pela passagem RD → Beehiiv"
@@ -81,7 +82,7 @@ export default async function Page() {
           {/* Nome de campanha não cabe como valor de KPI (38px estoura o card):
               o número é o valor, o nome vai no hint. */}
           <KPI
-            label="Top campanha"
+            label="Top campanha" icon={<Megaphone />}
             value={topCampanha ? fmtNum(topCampanha.leads) : "—"}
             accent="plum"
             hint={
@@ -91,7 +92,7 @@ export default async function Page() {
             }
           />
           <KPI
-            label="Mídia paga"
+            label="Mídia paga" icon={<Target />}
             value={aq.temCampanha ? fmtPct(pctPago) : "—"}
             accent="navy"
             hint={
@@ -178,7 +179,7 @@ export default async function Page() {
       >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <KPI
-            label="Leads devolvidos"
+            label="Leads devolvidos" icon={<Undo2 />}
             value={fmtNum(aq.devolveu.length)}
             accent={aq.devolveu.length > 0 ? "olive" : "ink"}
             hint="clicaram na news e converteram em outra LP"

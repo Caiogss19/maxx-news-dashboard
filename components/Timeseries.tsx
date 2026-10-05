@@ -9,7 +9,7 @@ export function Timeseries({ data }: { data: Point[] }) {
   return (
     <div className="paper p-6">
       <div className="flex items-baseline justify-between mb-2">
-        <h3 className="font-display text-xl">Crescimento líquido · 30d</h3>
+        <h3 className="nw-painel-t">Crescimento líquido · 30d</h3>
         <span className="font-mono-tag">inscritos vs. unsubs por dia</span>
       </div>
       <div className="flex flex-wrap gap-4 text-xs text-ink-mute mb-4">
